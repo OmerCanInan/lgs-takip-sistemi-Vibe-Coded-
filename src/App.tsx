@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { StudentView } from './components/student/StudentView';
 import { MentorView } from './components/mentor/MentorView';
 import { LoginView } from './components/auth/LoginView';
-import { Smartphone, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 
 const MainApp: React.FC = () => {
   const { role, resetToDefaults, currentUser } = useApp();
-  const [previewMode, setPreviewMode] = useState<'mobile' | 'responsive'>('responsive');
 
   // If not logged in, show Login Screen
   if (!currentUser) {
@@ -18,59 +17,19 @@ const MainApp: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Top Header */}
-      <Header previewMode={previewMode} setPreviewMode={setPreviewMode} />
+      <Header />
 
       {/* Main Container */}
       <main
         style={{
           flex: 1,
           width: '100%',
-          maxWidth: previewMode === 'mobile' ? '460px' : '1240px',
+          maxWidth: '1240px',
           margin: '0 auto',
           padding: '20px 16px',
-          transition: 'max-width 0.3s ease',
         }}
       >
-        {previewMode === 'mobile' ? (
-          /* Sleek Mobile Device Mockup Frame */
-          <div
-            style={{
-              background: '#0a0e1a',
-              borderRadius: '36px',
-              border: '8px solid #1e293b',
-              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1)',
-              overflow: 'hidden',
-              minHeight: '780px',
-              position: 'relative',
-              padding: '16px',
-            }}
-          >
-            {/* Phone Speaker & Camera Notch */}
-            <div
-              style={{
-                width: '120px',
-                height: '18px',
-                background: '#1e293b',
-                borderRadius: '0 0 12px 12px',
-                margin: '-16px auto 16px auto',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-              }}
-            >
-              <div style={{ width: '40px', height: '4px', background: '#334155', borderRadius: '2px' }} />
-              <div style={{ width: '8px', height: '8px', background: '#334155', borderRadius: '50%' }} />
-            </div>
-
-            {role === 'student' ? <StudentView /> : <MentorView />}
-          </div>
-        ) : (
-          /* Full Width Responsive View */
-          <div>
-            {role === 'student' ? <StudentView /> : <MentorView />}
-          </div>
-        )}
+        {role === 'student' ? <StudentView /> : <MentorView />}
       </main>
 
       {/* Footer info & reset test data */}
@@ -89,7 +48,7 @@ const MainApp: React.FC = () => {
           marginBottom: role === 'student' ? '65px' : '0px',
         }}
       >
-        <span>LGS Yapay Zeka Destekli Çalışma ve Takip Sistemi • Mobil Öncelikli PWA</span>
+        <span>LGS Yapay Zeka Destekli Çalışma ve Takip Sistemi</span>
         <span>•</span>
         <button
           onClick={resetToDefaults}

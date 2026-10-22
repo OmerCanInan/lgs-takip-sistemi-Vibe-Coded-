@@ -1,20 +1,19 @@
 import React from 'react';
-import { Flame, ShieldCheck, UserCheck, Smartphone, Monitor, Sparkles, LogOut } from 'lucide-react';
+import { Flame, ShieldCheck, UserCheck, Sparkles, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 interface HeaderProps {
-  previewMode: 'mobile' | 'responsive';
-  setPreviewMode: (mode: 'mobile' | 'responsive') => void;
+  previewMode?: 'mobile' | 'responsive';
+  setPreviewMode?: (mode: 'mobile' | 'responsive') => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ previewMode, setPreviewMode }) => {
+export const Header: React.FC<HeaderProps> = () => {
   const {
     currentUser,
     logout,
     role,
     setRole,
     streakDays,
-    currentIntensity,
     pendingQuestionsCount,
     draftTasksCount,
     isSupabaseConnected,
@@ -128,33 +127,6 @@ export const Header: React.FC<HeaderProps> = ({ previewMode, setPreviewMode }) =
             <span>{streakDays} Gün Streak</span>
           </div>
 
-          {/* Intensity Level Indicator (Visible to both Student and Mentor) */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '999px',
-              background: 'rgba(99, 102, 241, 0.12)',
-              border: `1px solid ${currentIntensity.badgeColor}55`,
-              color: currentIntensity.badgeColor,
-              fontSize: '0.82rem',
-              fontWeight: 700,
-            }}
-            title="Aktif LGS çalışma temposu ve günlük soru hedefi"
-          >
-            <span
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: currentIntensity.badgeColor,
-              }}
-            />
-            <span>Seviye {currentIntensity.level}: {currentIntensity.name}</span>
-          </div>
-
           {/* Pending Alerts for Mentor */}
           {role === 'mentor' && (pendingQuestionsCount > 0 || draftTasksCount > 0) && (
             <div
@@ -177,27 +149,8 @@ export const Header: React.FC<HeaderProps> = ({ previewMode, setPreviewMode }) =
           )}
         </div>
 
-        {/* Controls: Mode Switcher & Role Selector */}
+        {/* Controls: Role Selector & Logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Mobile frame toggle (Only on desktop screens) */}
-          <button
-            onClick={() => setPreviewMode(previewMode === 'mobile' ? 'responsive' : 'mobile')}
-            className="btn btn-secondary btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            title="Mobil PWA çerçevesi veya Tam Genişlik modu"
-          >
-            {previewMode === 'mobile' ? (
-              <>
-                <Monitor size={15} />
-                <span>Geniş Görünüm</span>
-              </>
-            ) : (
-              <>
-                <Smartphone size={15} />
-                <span>Mobil PWA Görünümü</span>
-              </>
-            )}
-          </button>
 
           {/* Active Role Selector Switch (or Student Indicator) */}
           {currentUser?.role === 'student' ? (
