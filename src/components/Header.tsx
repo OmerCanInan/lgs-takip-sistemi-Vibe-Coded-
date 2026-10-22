@@ -126,33 +126,32 @@ export const Header: React.FC<HeaderProps> = ({ previewMode, setPreviewMode }) =
             <span>{streakDays} Gün Streak</span>
           </div>
 
-          {/* Intensity Level Indicator (Only visible to Mentor) */}
-          {role === 'mentor' && (
-            <div
+          {/* Intensity Level Indicator (Visible to both Student and Mentor) */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '999px',
+              background: 'rgba(99, 102, 241, 0.12)',
+              border: `1px solid ${currentIntensity.badgeColor}55`,
+              color: currentIntensity.badgeColor,
+              fontSize: '0.82rem',
+              fontWeight: 700,
+            }}
+            title="Aktif LGS çalışma temposu ve günlük soru hedefi"
+          >
+            <span
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                borderRadius: '999px',
-                background: 'rgba(99, 102, 241, 0.12)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
-                color: '#a5b4fc',
-                fontSize: '0.82rem',
-                fontWeight: 600,
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: currentIntensity.badgeColor,
               }}
-            >
-              <span
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: currentIntensity.badgeColor,
-                }}
-              />
-              <span>Seviye {currentIntensity.level}: {currentIntensity.name}</span>
-            </div>
-          )}
+            />
+            <span>Seviye {currentIntensity.level}: {currentIntensity.name}</span>
+          </div>
 
           {/* Pending Alerts for Mentor */}
           {role === 'mentor' && (pendingQuestionsCount > 0 || draftTasksCount > 0) && (

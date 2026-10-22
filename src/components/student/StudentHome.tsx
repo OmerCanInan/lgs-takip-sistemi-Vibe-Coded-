@@ -222,12 +222,25 @@ export const StudentHome: React.FC<{ onNavigateToTab: (tab: 'home' | 'entry' | '
       <div className="glass-panel" style={{ padding: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <Zap size={18} color="#f59e0b" fill="#f59e0b" />
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Bugünkü Soru Hedefi</h3>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  background: `${currentIntensity.badgeColor}22`,
+                  color: currentIntensity.badgeColor,
+                  border: `1px solid ${currentIntensity.badgeColor}55`,
+                }}
+              >
+                Seviye {currentIntensity.level}: {currentIntensity.name}
+              </span>
             </div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Günlük Hedef: <strong>{todayTargetQuestions} Soru</strong>
+              Günlük Hedef: <strong>{todayTargetQuestions} Soru</strong> • {currentIntensity.dailyMinutes} Dk / Gün
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>

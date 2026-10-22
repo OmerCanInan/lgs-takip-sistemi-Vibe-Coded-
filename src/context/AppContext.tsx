@@ -140,6 +140,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('lgs_intensity', JSON.stringify(intensityLevel));
   }, [intensityLevel]);
 
+  // Cross-tab synchronization within the same browser
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'lgs_intensity' && e.newValue) {
+        try {
+          const newLvl = JSON.parse(e.newValue);
+          if (typeof newLvl === 'number' && newLvl >= 1 && newLvl <= 5) {
+            setIntensityLevelState(newLvl);
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('lgs_tasks', JSON.stringify(tasks));
   }, [tasks]);
@@ -195,7 +211,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsSupabaseConnected(true);
 
         if (tasksRes.data && tasksRes.data.length > 0) {
-          setTasks(tasksRes.data.map(mapTaskFromDb));
+          // Check for intensity setting in Supabase
+          const intensityTask = tasksRes.data.find((t: any) => t.id === 'setting-intensity');
+          if (intensityTask && typeof intensityTask.target_count === 'number' && intensityTask.target_count >= 1 && intensityTask.target_count <= 5) {
+            setIntensityLevelState(intensityTask.target_count);
+          }
+
+          const actualTasks = tasksRes.data.filter((t: any) => t.id !== 'setting-intensity');
+          setTasks(actualTasks.map(mapTaskFromDb));
         } else {
           // Seed starter data to Supabase if empty
           INITIAL_TASKS.forEach((t) => syncTaskToSupabase(t));
@@ -237,12 +260,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     initSupabase();
 
-    // Subscribe to Realtime postgres_changes across all tables
+    // Subscribe to Realtime broadcast and postgres_changes across all tables
     const channel = client
       .channel('public:lgs-takip-sync')
+      .on('broadcast', { event: 'intensity_change' }, (payload) => {
+        if (payload.payload?.level && typeof payload.payload.level === 'number') {
+          setIntensityLevelState(payload.payload.level);
+        }
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+        if (payload.new && (payload.new as any).id === 'setting-intensity') {
+          const lvl = (payload.new as any).target_count;
+          if (typeof lvl === 'number' && lvl >= 1 && lvl <= 5) {
+            setIntensityLevelState(lvl);
+          }
+          return;
+        }
+
         if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
           const item = mapTaskFromDb(payload.new);
+          if (item.id === 'setting-intensity') return;
           setTasks((prev) => {
             const idx = prev.findIndex((t) => t.id === item.id);
             return idx >= 0 ? prev.map((t) => (t.id === item.id ? item : t)) : [item, ...prev];
@@ -301,6 +338,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setIntensityLevel = (lvl: number) => {
     setIntensityLevelState(lvl);
+    try {
+      localStorage.setItem('lgs_intensity', JSON.stringify(lvl));
+    } catch {}
+
+    // Persist intensity setting to Supabase
+    syncTaskToSupabase({
+      id: 'setting-intensity',
+      studentId: 'student-1',
+      title: 'intensity_level',
+      subject: 'Matematik',
+      topicId: 'settings',
+      topicName: 'Ayarlar',
+      targetCount: lvl,
+      source: 'mentor',
+      status: 'active',
+      isCompleted: false,
+      targetDate: new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString(),
+    });
+
+    // Realtime broadcast to all connected devices/tabs
+    if (isSupabaseConfigured && supabase) {
+      supabase.channel('public:lgs-takip-sync').send({
+        type: 'broadcast',
+        event: 'intensity_change',
+        payload: { level: lvl },
+      }).catch(() => {});
+    }
   };
 
   // Toggle Task Completion
