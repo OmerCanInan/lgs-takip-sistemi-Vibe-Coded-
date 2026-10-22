@@ -21,9 +21,9 @@ export const StudentDataEntry: React.FC = () => {
   // Form states - Daily Study
   const [subject, setSubject] = useState<SubjectName>('Matematik');
   const [topicId, setTopicId] = useState<string>('mat-1');
-  const [correct, setCorrect] = useState<number>(0);
-  const [incorrect, setIncorrect] = useState<number>(0);
-  const [blank, setBlank] = useState<number>(0);
+  const [correct, setCorrect] = useState<number | ''>('');
+  const [incorrect, setIncorrect] = useState<number | ''>('');
+  const [blank, setBlank] = useState<number | ''>('');
   const [studyImages, setStudyImages] = useState<string[]>([]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,32 +59,38 @@ export const StudentDataEntry: React.FC = () => {
   };
 
   // Calculated net for single log
-  const calculatedNet = Math.max(0, correct - incorrect / 3).toFixed(2);
+  const numCorrect = Number(correct) || 0;
+  const numIncorrect = Number(incorrect) || 0;
+  const calculatedNet = Math.max(0, numCorrect - numIncorrect / 3).toFixed(2);
 
   const handleStudySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const selectedTopic = CURRICULUM_TOPICS.find((t) => t.id === topicId);
     if (!selectedTopic) return;
 
+    const c = Number(correct) || 0;
+    const inc = Number(incorrect) || 0;
+    const b = Number(blank) || 0;
+
     addStudyLog({
       subject,
       topicId,
       topicName: selectedTopic.topicName,
-      correct: Number(correct),
-      incorrect: Number(incorrect),
-      blank: Number(blank),
+      correct: c,
+      incorrect: inc,
+      blank: b,
       durationMinutes: 0,
       logDate: new Date().toISOString().split('T')[0],
       images: studyImages.length > 0 ? studyImages : undefined,
     });
 
-    setSaveSuccessMsg(`Tebrikler! ${Number(correct) + Number(incorrect)} soru${studyImages.length > 0 ? ` ve ${studyImages.length} fotoğraf` : ''} kaydedildi.`);
+    setSaveSuccessMsg(`Tebrikler! ${c + inc} soru${studyImages.length > 0 ? ` ve ${studyImages.length} fotoğraf` : ''} kaydedildi.`);
     setTimeout(() => setSaveSuccessMsg(null), 3500);
 
-    // Reset values
-    setCorrect(0);
-    setIncorrect(0);
-    setBlank(0);
+    // Reset values to blank
+    setCorrect('');
+    setIncorrect('');
+    setBlank('');
     setStudyImages([]);
   };
 
@@ -93,35 +99,44 @@ export const StudentDataEntry: React.FC = () => {
   const [examDate, setExamDate] = useState(new Date().toISOString().split('T')[0]);
   const [examSubjects, setExamSubjects] = useState<{
     subject: SubjectName;
-    correct: number;
-    incorrect: number;
-    blank: number;
+    correct: number | '';
+    incorrect: number | '';
+    blank: number | '';
   }[]>([
-    { subject: 'Türkçe', correct: 0, incorrect: 0, blank: 0 },
-    { subject: 'Matematik', correct: 0, incorrect: 0, blank: 0 },
-    { subject: 'Fen Bilimleri', correct: 0, incorrect: 0, blank: 0 },
-    { subject: 'T.C. İnkılap Tarihi', correct: 0, incorrect: 0, blank: 0 },
-    { subject: 'Din Kültürü', correct: 0, incorrect: 0, blank: 0 },
-    { subject: 'İngilizce', correct: 0, incorrect: 0, blank: 0 },
+    { subject: 'Türkçe', correct: '', incorrect: '', blank: '' },
+    { subject: 'Matematik', correct: '', incorrect: '', blank: '' },
+    { subject: 'Fen Bilimleri', correct: '', incorrect: '', blank: '' },
+    { subject: 'T.C. İnkılap Tarihi', correct: '', incorrect: '', blank: '' },
+    { subject: 'Din Kültürü', correct: '', incorrect: '', blank: '' },
+    { subject: 'İngilizce', correct: '', incorrect: '', blank: '' },
   ]);
 
   const updateExamRow = (
     index: number,
     field: 'correct' | 'incorrect' | 'blank',
-    val: number
+    val: string
   ) => {
     setExamSubjects((prev) => {
       const next = [...prev];
-      next[index] = { ...next[index], [field]: Math.max(0, val) };
+      const parsed = val === '' ? '' : Math.max(0, Number(val));
+      next[index] = { ...next[index], [field]: parsed };
       return next;
     });
   };
 
   // Calculate total exam net
-  const examSubjectResults: ExamSubjectResult[] = examSubjects.map((s) => ({
-    ...s,
-    net: Math.max(0, Number((s.correct - s.incorrect / 3).toFixed(2))),
-  }));
+  const examSubjectResults: ExamSubjectResult[] = examSubjects.map((s) => {
+    const c = Number(s.correct) || 0;
+    const inc = Number(s.incorrect) || 0;
+    const b = Number(s.blank) || 0;
+    return {
+      subject: s.subject,
+      correct: c,
+      incorrect: inc,
+      blank: b,
+      net: Math.max(0, Number((c - inc / 3).toFixed(2))),
+    };
+  });
   const totalExamNet = examSubjectResults.reduce((acc, s) => acc + s.net, 0);
 
   const handleExamSubmit = (e: React.FormEvent) => {
@@ -270,9 +285,9 @@ export const StudentDataEntry: React.FC = () => {
                 min="0"
                 className="input-field"
                 value={correct}
-                onChange={(e) => setCorrect(Number(e.target.value))}
+                onChange={(e) => setCorrect(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                placeholder=""
                 style={{ borderColor: 'rgba(16, 185, 129, 0.4)', fontWeight: 700 }}
-                required
               />
             </div>
             <div>
@@ -282,9 +297,9 @@ export const StudentDataEntry: React.FC = () => {
                 min="0"
                 className="input-field"
                 value={incorrect}
-                onChange={(e) => setIncorrect(Number(e.target.value))}
+                onChange={(e) => setIncorrect(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                placeholder=""
                 style={{ borderColor: 'rgba(239, 68, 68, 0.4)', fontWeight: 700 }}
-                required
               />
             </div>
             <div>
@@ -294,8 +309,8 @@ export const StudentDataEntry: React.FC = () => {
                 min="0"
                 className="input-field"
                 value={blank}
-                onChange={(e) => setBlank(Number(e.target.value))}
-                required
+                onChange={(e) => setBlank(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                placeholder=""
               />
             </div>
           </div>
@@ -421,7 +436,7 @@ export const StudentDataEntry: React.FC = () => {
               </div>
             </div>
             <div style={{ textAlign: 'right', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              Toplam: <strong>{correct + incorrect + blank} Soru</strong>
+              Toplam: <strong>{(Number(correct) || 0) + (Number(incorrect) || 0) + (Number(blank) || 0)} Soru</strong>
             </div>
           </div>
 
@@ -487,7 +502,9 @@ export const StudentDataEntry: React.FC = () => {
           {/* Subject Rows */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
             {examSubjects.map((row, index) => {
-              const rowNet = Math.max(0, row.correct - row.incorrect / 3).toFixed(2);
+              const numCorrect = Number(row.correct) || 0;
+              const numIncorrect = Number(row.incorrect) || 0;
+              const rowNet = Math.max(0, numCorrect - numIncorrect / 3).toFixed(2);
               return (
                 <div
                   key={row.subject}
@@ -512,8 +529,8 @@ export const StudentDataEntry: React.FC = () => {
                       className="input-field"
                       style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center' }}
                       value={row.correct}
-                      onChange={(e) => updateExamRow(index, 'correct', Number(e.target.value))}
-                      placeholder="D"
+                      onChange={(e) => updateExamRow(index, 'correct', e.target.value)}
+                      placeholder=""
                     />
                   </div>
 
@@ -525,8 +542,8 @@ export const StudentDataEntry: React.FC = () => {
                       className="input-field"
                       style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center' }}
                       value={row.incorrect}
-                      onChange={(e) => updateExamRow(index, 'incorrect', Number(e.target.value))}
-                      placeholder="Y"
+                      onChange={(e) => updateExamRow(index, 'incorrect', e.target.value)}
+                      placeholder=""
                     />
                   </div>
 
@@ -538,8 +555,8 @@ export const StudentDataEntry: React.FC = () => {
                       className="input-field"
                       style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center' }}
                       value={row.blank}
-                      onChange={(e) => updateExamRow(index, 'blank', Number(e.target.value))}
-                      placeholder="B"
+                      onChange={(e) => updateExamRow(index, 'blank', e.target.value)}
+                      placeholder=""
                     />
                   </div>
 
