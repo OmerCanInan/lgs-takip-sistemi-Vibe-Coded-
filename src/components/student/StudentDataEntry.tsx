@@ -53,10 +53,9 @@ const compressImage = (file: File): Promise<string> => {
 };
 
 export const StudentDataEntry: React.FC = () => {
-  const { addStudyLog, addExamResult, studyLogs } = useApp();
+  const { addStudyLog, addExamResult } = useApp();
   const [activeTab, setActiveTab] = useState<'study' | 'exam'>('study');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   // Form states - Daily Study
   const [subject, setSubject] = useState<SubjectName>('Matematik');
@@ -594,6 +593,30 @@ export const StudentDataEntry: React.FC = () => {
             </div>
           </div>
 
+          {/* Column Header */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1.4fr 1fr 1fr 1fr 1fr',
+              gap: '8px',
+              alignItems: 'center',
+              padding: '8px 14px',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(30, 41, 59, 0.7)',
+              border: '1px solid var(--border-subtle)',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              textAlign: 'center',
+              marginBottom: '4px',
+            }}
+          >
+            <div style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>DERS</div>
+            <div style={{ color: '#34d399' }}>DOĞRU (D)</div>
+            <div style={{ color: '#f87171' }}>YANLIŞ (Y)</div>
+            <div style={{ color: '#94a3b8' }}>BOŞ (B)</div>
+            <div style={{ color: '#818cf8', textAlign: 'right' }}>NET</div>
+          </div>
+
           {/* Subject Rows */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
             {examSubjects.map((row, index) => {
@@ -622,10 +645,10 @@ export const StudentDataEntry: React.FC = () => {
                       min="0"
                       max={row.subject === 'Matematik' || row.subject === 'Fen Bilimleri' || row.subject === 'Türkçe' ? 20 : 10}
                       className="input-field"
-                      style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center' }}
+                      style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center', borderColor: 'rgba(52, 211, 153, 0.4)', fontWeight: 700 }}
                       value={row.correct}
                       onChange={(e) => updateExamRow(index, 'correct', e.target.value)}
-                      placeholder=""
+                      placeholder="D"
                     />
                   </div>
 
@@ -635,10 +658,10 @@ export const StudentDataEntry: React.FC = () => {
                       min="0"
                       max={row.subject === 'Matematik' || row.subject === 'Fen Bilimleri' || row.subject === 'Türkçe' ? 20 : 10}
                       className="input-field"
-                      style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center' }}
+                      style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center', borderColor: 'rgba(239, 68, 68, 0.4)', fontWeight: 700 }}
                       value={row.incorrect}
                       onChange={(e) => updateExamRow(index, 'incorrect', e.target.value)}
-                      placeholder=""
+                      placeholder="Y"
                     />
                   </div>
 
@@ -648,10 +671,10 @@ export const StudentDataEntry: React.FC = () => {
                       min="0"
                       max={row.subject === 'Matematik' || row.subject === 'Fen Bilimleri' || row.subject === 'Türkçe' ? 20 : 10}
                       className="input-field"
-                      style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center' }}
+                      style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center', borderColor: 'rgba(148, 163, 184, 0.3)' }}
                       value={row.blank}
                       onChange={(e) => updateExamRow(index, 'blank', e.target.value)}
-                      placeholder=""
+                      placeholder="B"
                     />
                   </div>
 
@@ -678,138 +701,6 @@ export const StudentDataEntry: React.FC = () => {
             <span>Deneme Sonucunu Kaydet</span>
           </button>
         </form>
-      )}
-
-      {/* Son Eklenen Günlük Çalışmalar & Yüklenen Fotoğraflar */}
-      <div className="glass-panel" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Camera size={18} color="#818cf8" />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Son Kaydedilen Günlük Çalışmalar & Fotoğraflar</h3>
-          </div>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-            {studyLogs.filter((l) => l.images && l.images.length > 0).length} Fotoğraflı Kayıt
-          </span>
-        </div>
-
-        {studyLogs.length === 0 ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Henüz kaydedilmiş çalışma bulunmuyor. Yukarıdaki formdan soru çözümlerini ve fotoğraflarını kaydedebilirsin!
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {studyLogs.slice(0, 8).map((log) => (
-              <div
-                key={log.id}
-                style={{
-                  padding: '14px',
-                  borderRadius: '10px',
-                  background: 'rgba(15, 23, 42, 0.6)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: log.images && log.images.length > 0 ? '10px' : '0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        color: log.subject === 'Matematik' ? '#818cf8' : log.subject === 'Fen Bilimleri' ? '#34d399' : '#f472b6',
-                        background: 'rgba(255, 255, 255, 0.06)',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                      }}
-                    >
-                      {log.subject}
-                    </span>
-                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff' }}>{log.topicName}</span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem' }}>
-                    <span style={{ color: '#34d399', fontWeight: 700 }}>{log.correct} D</span>
-                    <span style={{ color: '#f87171', fontWeight: 700 }}>{log.incorrect} Y</span>
-                    {log.blank > 0 && <span style={{ color: 'var(--text-muted)' }}>{log.blank} B</span>}
-                    <span style={{ color: '#818cf8', fontWeight: 800 }}>{Math.max(0, log.correct - log.incorrect / 3).toFixed(1)} Net</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>• {log.logDate}</span>
-                  </div>
-                </div>
-
-                {/* Attached photos */}
-                {log.images && log.images.length > 0 && (
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '8px' }}>
-                    {log.images.map((img, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => setLightboxImage(img)}
-                        style={{
-                          width: '74px',
-                          height: '74px',
-                          borderRadius: '8px',
-                          overflow: 'hidden',
-                          border: '1px solid rgba(255, 255, 255, 0.2)',
-                          cursor: 'pointer',
-                          transition: 'transform 0.2s',
-                        }}
-                        className="glass-card-interactive"
-                        title="Fotoğrafı büyütmek için tıkla"
-                      >
-                        <img src={img} alt="Çalışma fotoğrafı" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Lightbox Modal */}
-      {lightboxImage && (
-        <div
-          onClick={() => setLightboxImage(null)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.92)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-          }}
-        >
-          <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
-            <button
-              onClick={() => setLightboxImage(null)}
-              style={{
-                position: 'absolute',
-                top: '-44px',
-                right: '0',
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: 'none',
-                color: '#fff',
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-              }}
-            >
-              <X size={20} />
-            </button>
-            <img
-              src={lightboxImage}
-              alt="Büyütülmüş Fotoğraf"
-              style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: '10px', objectFit: 'contain' }}
-            />
-          </div>
-        </div>
       )}
     </div>
   );
