@@ -633,6 +633,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setExams((prev) => [newExam, ...prev]);
     syncExamToSupabase(newExam);
+    try {
+      confetti({
+        particleCount: 120,
+        spread: 90,
+        origin: { y: 0.5 },
+        colors: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'],
+      });
+    } catch {}
   };
 
   // Add Question to Soru Kutusu

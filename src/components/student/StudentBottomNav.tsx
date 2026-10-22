@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Edit3, HelpCircle } from 'lucide-react';
+import { Home, BookOpen, HelpCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 export type StudentTab = 'home' | 'entry' | 'questions';
@@ -35,7 +35,7 @@ export const StudentBottomNav: React.FC<StudentBottomNavProps> = ({
         className={`bottom-nav-item ${activeTab === 'entry' ? 'active' : ''}`}
       >
         <div className="nav-icon-container">
-          <Edit3 size={20} />
+          <BookOpen size={20} />
         </div>
         <span>Veri Gir</span>
       </button>
