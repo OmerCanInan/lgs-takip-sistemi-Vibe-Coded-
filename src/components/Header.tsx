@@ -15,6 +15,7 @@ export const Header: React.FC<HeaderProps> = ({ previewMode, setPreviewMode }) =
     currentIntensity,
     pendingQuestionsCount,
     draftTasksCount,
+    isSupabaseConnected,
   } = useApp();
 
   return (
@@ -76,6 +77,26 @@ export const Header: React.FC<HeaderProps> = ({ previewMode, setPreviewMode }) =
               >
                 AI DESTEKLİ
               </span>
+              {isSupabaseConnected && (
+                <span
+                  style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#34d399',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                  title="Supabase veritabanı ve realtime senkronizasyon bağlı"
+                >
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                  CANLI BULUT
+                </span>
+              )}
             </div>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
               {role === 'student' ? 'LGS Hazırlık' : 'Mentor Takip Masası'}

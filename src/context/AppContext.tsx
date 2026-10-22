@@ -23,6 +23,22 @@ import type {
   TaskItem,
   UserRole,
 } from '../types';
+import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import {
+  mapTaskFromDb,
+  mapStudyLogFromDb,
+  mapExamFromDb,
+  mapQuestionFromDb,
+  mapChatMessageFromDb,
+  mapAiReportFromDb,
+  syncTaskToSupabase,
+  deleteTaskFromSupabase,
+  syncStudyLogToSupabase,
+  syncExamToSupabase,
+  syncQuestionToSupabase,
+  syncChatMessageToSupabase,
+  syncAiReportToSupabase,
+} from '../services/supabaseSync';
 
 interface TopicMastery {
   topic: CurriculumTopic;
@@ -78,6 +94,7 @@ interface AppContextType {
   draftTasksCount: number;
   topicMasteries: TopicMastery[];
   resetToDefaults: () => void;
+  isSupabaseConnected: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -147,6 +164,134 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('lgs_reports', JSON.stringify(aiReports));
   }, [aiReports]);
 
+  // Supabase Realtime & Remote Database Synchronization
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
+
+  useEffect(() => {
+    const client = supabase;
+    if (!isSupabaseConfigured || !client) return;
+
+    let isMounted = true;
+
+    const initSupabase = async () => {
+      try {
+        const [tasksRes, logsRes, examsRes, questionsRes, chatRes, reportsRes] = await Promise.all([
+          client.from('tasks').select('*'),
+          client.from('study_logs').select('*'),
+          client.from('exams').select('*'),
+          client.from('questions').select('*'),
+          client.from('chat_messages').select('*').order('created_at', { ascending: true }),
+          client.from('ai_reports').select('*'),
+        ]);
+
+        if (!isMounted) return;
+
+        // Check if tables are available
+        if (tasksRes.error || logsRes.error) {
+          console.warn('Supabase tables not initialized or query failed:', tasksRes.error?.message || logsRes.error?.message);
+          return;
+        }
+
+        setIsSupabaseConnected(true);
+
+        if (tasksRes.data && tasksRes.data.length > 0) {
+          setTasks(tasksRes.data.map(mapTaskFromDb));
+        } else {
+          // Seed starter data to Supabase if empty
+          INITIAL_TASKS.forEach((t) => syncTaskToSupabase(t));
+        }
+
+        if (logsRes.data && logsRes.data.length > 0) {
+          setStudyLogs(logsRes.data.map(mapStudyLogFromDb));
+        } else {
+          INITIAL_STUDY_LOGS.forEach((l) => syncStudyLogToSupabase(l));
+        }
+
+        if (examsRes.data && examsRes.data.length > 0) {
+          setExams(examsRes.data.map(mapExamFromDb));
+        } else {
+          INITIAL_EXAMS.forEach((e) => syncExamToSupabase(e));
+        }
+
+        if (questionsRes.data && questionsRes.data.length > 0) {
+          setQuestions(questionsRes.data.map(mapQuestionFromDb));
+        } else {
+          INITIAL_QUESTIONS.forEach((q) => syncQuestionToSupabase(q));
+        }
+
+        if (chatRes.data && chatRes.data.length > 0) {
+          setChatMessages(chatRes.data.map(mapChatMessageFromDb));
+        } else {
+          INITIAL_AI_CHAT.forEach((c) => syncChatMessageToSupabase(c));
+        }
+
+        if (reportsRes.data && reportsRes.data.length > 0) {
+          setAiReports(reportsRes.data.map(mapAiReportFromDb));
+        } else {
+          INITIAL_AI_REPORTS.forEach((r) => syncAiReportToSupabase(r));
+        }
+      } catch (err) {
+        console.warn('Supabase sync initialization error:', err);
+      }
+    };
+
+    initSupabase();
+
+    // Subscribe to Realtime postgres_changes across all tables
+    const channel = client
+      .channel('public:lgs-takip-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const item = mapTaskFromDb(payload.new);
+          setTasks((prev) => {
+            const idx = prev.findIndex((t) => t.id === item.id);
+            return idx >= 0 ? prev.map((t) => (t.id === item.id ? item : t)) : [item, ...prev];
+          });
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          setTasks((prev) => prev.filter((t) => t.id !== (payload.old as any).id));
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'study_logs' }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const item = mapStudyLogFromDb(payload.new);
+          setStudyLogs((prev) => {
+            const idx = prev.findIndex((l) => l.id === item.id);
+            return idx >= 0 ? prev.map((l) => (l.id === item.id ? item : l)) : [item, ...prev];
+          });
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'exams' }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const item = mapExamFromDb(payload.new);
+          setExams((prev) => {
+            const idx = prev.findIndex((e) => e.id === item.id);
+            return idx >= 0 ? prev.map((e) => (e.id === item.id ? item : e)) : [item, ...prev];
+          });
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'questions' }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const item = mapQuestionFromDb(payload.new);
+          setQuestions((prev) => {
+            const idx = prev.findIndex((q) => q.id === item.id);
+            return idx >= 0 ? prev.map((q) => (q.id === item.id ? item : q)) : [item, ...prev];
+          });
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const item = mapChatMessageFromDb(payload.new);
+          setChatMessages((prev) => (prev.some((m) => m.id === item.id) ? prev : [...prev, item]));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      client.removeChannel(channel);
+    };
+  }, []);
+
   const currentIntensity =
     INTENSITY_LEVELS.find((l) => l.level === intensityLevel) || INTENSITY_LEVELS[2];
 
@@ -177,11 +322,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               // Ignore if canvas-confetti is not loaded
             }
           }
-          return {
+          const updated: TaskItem = {
             ...t,
             isCompleted: nextState,
             completedAt: nextState ? new Date().toISOString() : undefined,
           };
+          syncTaskToSupabase(updated);
+          return updated;
         }
         return t;
       })
@@ -202,23 +349,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setTasks((prev) => [newTask, ...prev]);
+    syncTaskToSupabase(newTask);
   };
 
   // Approve AI Draft Task
   const approveDraftTask = (taskId: string) => {
     setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: 'active' } : t))
+      prev.map((t) => {
+        if (t.id === taskId) {
+          const updated = { ...t, status: 'active' as const };
+          syncTaskToSupabase(updated);
+          return updated;
+        }
+        return t;
+      })
     );
   };
 
   // Delete draft task
   const deleteDraftTask = (taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    deleteTaskFromSupabase(taskId);
   };
 
   // Delete any task
   const deleteTask = (taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    deleteTaskFromSupabase(taskId);
   };
 
   // Submit Task Quiz (student solves question pack)
@@ -251,24 +408,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const totalQ = targetTask.questions.length;
     const scorePercent = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
 
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id !== taskId) return t;
-        return {
-          ...t,
-          isCompleted: true,
-          completedAt: new Date().toISOString(),
-          questions: updatedQuestions,
-          quizResult: {
-            correct,
-            incorrect,
-            blank,
-            scorePercent,
-            submittedAt: new Date().toISOString(),
-          },
-        };
-      })
-    );
+    const updatedTask: TaskItem = {
+      ...targetTask,
+      isCompleted: true,
+      completedAt: new Date().toISOString(),
+      questions: updatedQuestions,
+      quizResult: {
+        correct,
+        incorrect,
+        blank,
+        scorePercent,
+        submittedAt: new Date().toISOString(),
+      },
+    };
+
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+    syncTaskToSupabase(updatedTask);
 
     // Only add a study log if questions were answered, and prevent duplicates
     const answeredCount = correct + incorrect;
@@ -289,6 +444,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createdAt: new Date().toISOString(),
       };
       setStudyLogs((sl) => [newLog, ...sl.filter((l) => l.id !== newLogId)]);
+      syncStudyLogToSupabase(newLog);
     }
 
     try {
@@ -303,7 +459,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Approve all AI draft tasks
   const approveAllDraftTasks = () => {
     setTasks((prev) =>
-      prev.map((t) => (t.status === 'draft' ? { ...t, status: 'active' } : t))
+      prev.map((t) => {
+        if (t.status === 'draft') {
+          const updated = { ...t, status: 'active' as const };
+          syncTaskToSupabase(updated);
+          return updated;
+        }
+        return t;
+      })
     );
   };
 
@@ -316,6 +479,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setStudyLogs((prev) => [newLog, ...prev]);
+    syncStudyLogToSupabase(newLog);
     // Confetti on logging study
     try {
       confetti({
@@ -334,6 +498,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       studentId: 'student-1',
     };
     setExams((prev) => [newExam, ...prev]);
+    syncExamToSupabase(newExam);
   };
 
   // Add Question to Soru Kutusu
@@ -369,6 +534,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setQuestions((prev) => [newQuestion, ...prev]);
+    syncQuestionToSupabase(newQuestion);
   };
 
   // Mentor answers question
@@ -385,11 +551,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             imagePaths: images,
             createdAt: new Date().toISOString(),
           };
-          return {
+          const updated: QuestionItem = {
             ...q,
             status: 'answered',
             messages: [...q.messages, newMsg],
           };
+          syncQuestionToSupabase(updated);
+          return updated;
         }
         return q;
       })
@@ -401,11 +569,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setQuestions((prev) =>
       prev.map((q) => {
         if (q.id === questionId) {
-          return {
+          const updated: QuestionItem = {
             ...q,
             status: 'resolved',
             resolvedAt: new Date().toISOString(),
           };
+          syncQuestionToSupabase(updated);
+          return updated;
         }
         return q;
       })
@@ -433,11 +603,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             imagePaths: [],
             createdAt: new Date().toISOString(),
           };
-          return {
+          const updated: QuestionItem = {
             ...q,
             status: 'reopened',
             messages: [...q.messages, followUpMsg],
           };
+          syncQuestionToSupabase(updated);
+          return updated;
         }
         return q;
       })
@@ -457,6 +629,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setChatMessages((prev) => [...prev, userMsg]);
+    syncChatMessageToSupabase(userMsg);
     setIsAiLoading(true);
 
     try {
@@ -478,6 +651,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       setChatMessages((prev) => [...prev, assistantMsg]);
+      syncChatMessageToSupabase(assistantMsg);
     } catch (error) {
       console.error('Gemini chat error:', error);
       const errorMsg: ChatMessage = {
@@ -548,6 +722,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createdAt: new Date().toISOString(),
       };
       setAiReports((prev) => [newReport, ...prev]);
+      syncAiReportToSupabase(newReport);
     } catch (error) {
       console.error('Report generation failed:', error);
     } finally {
@@ -596,6 +771,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }));
 
       setTasks((prev) => [...generatedDrafts, ...prev]);
+      generatedDrafts.forEach((d) => syncTaskToSupabase(d));
     } catch (error) {
       console.error('Plan generation failed:', error);
     } finally {
@@ -715,6 +891,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         draftTasksCount,
         topicMasteries,
         resetToDefaults,
+        isSupabaseConnected,
       }}
     >
       {children}
