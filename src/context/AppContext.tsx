@@ -283,7 +283,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         setIsSupabaseConnected(true);
 
-        if (tasksRes.data && tasksRes.data.length > 0) {
+        if (tasksRes.data) {
           // Check for intensity setting in Supabase
           const intensityTask = tasksRes.data.find((t: any) => t.id === 'setting-intensity');
           if (intensityTask && typeof intensityTask.target_count === 'number' && intensityTask.target_count >= 1 && intensityTask.target_count <= 5) {
@@ -292,39 +292,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           const actualTasks = tasksRes.data.filter((t: any) => t.id !== 'setting-intensity');
           setTasks(actualTasks.map(mapTaskFromDb));
-        } else {
-          // Seed starter data to Supabase if empty
-          INITIAL_TASKS.forEach((t) => syncTaskToSupabase(t));
         }
 
-        if (logsRes.data && logsRes.data.length > 0) {
+        if (logsRes.data) {
           setStudyLogs(logsRes.data.map(mapStudyLogFromDb));
-        } else {
-          INITIAL_STUDY_LOGS.forEach((l) => syncStudyLogToSupabase(l));
         }
 
-        if (examsRes.data && examsRes.data.length > 0) {
+        if (examsRes.data) {
           setExams(examsRes.data.map(mapExamFromDb));
-        } else {
-          INITIAL_EXAMS.forEach((e) => syncExamToSupabase(e));
         }
 
-        if (questionsRes.data && questionsRes.data.length > 0) {
+        if (questionsRes.data) {
           setQuestions(questionsRes.data.map(mapQuestionFromDb));
-        } else {
-          INITIAL_QUESTIONS.forEach((q) => syncQuestionToSupabase(q));
         }
 
-        if (chatRes.data && chatRes.data.length > 0) {
+        if (chatRes.data) {
           setChatMessages(chatRes.data.map(mapChatMessageFromDb));
-        } else {
-          INITIAL_AI_CHAT.forEach((c) => syncChatMessageToSupabase(c));
         }
 
-        if (reportsRes.data && reportsRes.data.length > 0) {
+        if (reportsRes.data) {
           setAiReports(reportsRes.data.map(mapAiReportFromDb));
-        } else {
-          INITIAL_AI_REPORTS.forEach((r) => syncAiReportToSupabase(r));
         }
       } catch (err) {
         console.warn('Supabase sync initialization error:', err);
@@ -333,12 +320,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     initSupabase();
 
+    // Auto-sync when tab or mobile browser becomes active
+    const handleSyncOnActive = () => {
+      if (document.visibilityState === 'visible') {
+        initSupabase();
+      }
+    };
+    window.addEventListener('focus', handleSyncOnActive);
+    document.addEventListener('visibilitychange', handleSyncOnActive);
+
     // Subscribe to Realtime broadcast and postgres_changes across all tables
     const channel = client
       .channel('public:lgs-takip-sync')
       .on('broadcast', { event: 'intensity_change' }, (payload) => {
         if (payload.payload?.level && typeof payload.payload.level === 'number') {
           setIntensityLevelState(payload.payload.level);
+        }
+      })
+      .on('broadcast', { event: 'exam_deleted' }, (payload) => {
+        if (payload.payload?.examId) {
+          setExams((prev) => prev.filter((e) => e.id !== payload.payload.examId));
+        } else {
+          client.from('exams').select('*').then((r) => {
+            if (r.data) setExams(r.data.map(mapExamFromDb));
+          });
+        }
+      })
+      .on('broadcast', { event: 'study_log_deleted' }, (payload) => {
+        if (payload.payload?.logId) {
+          setStudyLogs((prev) => prev.filter((l) => l.id !== payload.payload.logId));
+        } else {
+          client.from('study_logs').select('*').then((r) => {
+            if (r.data) setStudyLogs(r.data.map(mapStudyLogFromDb));
+          });
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
@@ -357,8 +371,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const idx = prev.findIndex((t) => t.id === item.id);
             return idx >= 0 ? prev.map((t) => (t.id === item.id ? item : t)) : [item, ...prev];
           });
-        } else if (payload.eventType === 'DELETE' && payload.old) {
-          setTasks((prev) => prev.filter((t) => t.id !== (payload.old as any).id));
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = (payload.old as any)?.id;
+          if (deletedId) {
+            setTasks((prev) => prev.filter((t) => t.id !== deletedId));
+          } else {
+            client.from('tasks').select('*').then((r) => {
+              if (r.data) {
+                const actual = r.data.filter((t: any) => t.id !== 'setting-intensity');
+                setTasks(actual.map(mapTaskFromDb));
+              }
+            });
+          }
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'study_logs' }, (payload) => {
@@ -368,8 +392,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const idx = prev.findIndex((l) => l.id === item.id);
             return idx >= 0 ? prev.map((l) => (l.id === item.id ? item : l)) : [item, ...prev];
           });
-        } else if (payload.eventType === 'DELETE' && payload.old) {
-          setStudyLogs((prev) => prev.filter((l) => l.id !== (payload.old as any).id));
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = (payload.old as any)?.id;
+          if (deletedId) {
+            setStudyLogs((prev) => prev.filter((l) => l.id !== deletedId));
+          } else {
+            client.from('study_logs').select('*').then((r) => {
+              if (r.data) setStudyLogs(r.data.map(mapStudyLogFromDb));
+            });
+          }
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'exams' }, (payload) => {
@@ -379,8 +410,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const idx = prev.findIndex((e) => e.id === item.id);
             return idx >= 0 ? prev.map((e) => (e.id === item.id ? item : e)) : [item, ...prev];
           });
-        } else if (payload.eventType === 'DELETE' && payload.old) {
-          setExams((prev) => prev.filter((e) => e.id !== (payload.old as any).id));
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = (payload.old as any)?.id;
+          if (deletedId) {
+            setExams((prev) => prev.filter((e) => e.id !== deletedId));
+          } else {
+            client.from('exams').select('*').then((r) => {
+              if (r.data) setExams(r.data.map(mapExamFromDb));
+            });
+          }
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'questions' }, (payload) => {
@@ -402,6 +440,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => {
       isMounted = false;
+      window.removeEventListener('focus', handleSyncOnActive);
+      document.removeEventListener('visibilitychange', handleSyncOnActive);
       client.removeChannel(channel);
     };
   }, []);
@@ -636,6 +676,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteStudyLog = (logId: string) => {
     setStudyLogs((prev) => prev.filter((l) => l.id !== logId));
     deleteStudyLogFromSupabase(logId);
+    if (supabase) {
+      supabase.channel('public:lgs-takip-sync').send({
+        type: 'broadcast',
+        event: 'study_log_deleted',
+        payload: { logId },
+      }).catch(() => {});
+    }
   };
 
   // Add Exam Result
@@ -661,6 +708,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteExam = (examId: string) => {
     setExams((prev) => prev.filter((e) => e.id !== examId));
     deleteExamFromSupabase(examId);
+    if (supabase) {
+      supabase.channel('public:lgs-takip-sync').send({
+        type: 'broadcast',
+        event: 'exam_deleted',
+        payload: { examId },
+      }).catch(() => {});
+    }
   };
 
   // Add Question to Soru Kutusu
