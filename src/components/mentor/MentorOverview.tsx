@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  BookOpen,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { ExamResult } from '../../types';
@@ -27,6 +28,8 @@ export const MentorOverview: React.FC<{ onNavigateToTab: (tab: string) => void }
   const [selectedExamForModal, setSelectedExamForModal] = useState<ExamResult | null>(null);
   const [expandedExamIds, setExpandedExamIds] = useState<string[]>([]);
   const [isExamsPanelOpen, setIsExamsPanelOpen] = useState(true);
+  const [isStudyLogsPanelOpen, setIsStudyLogsPanelOpen] = useState(true);
+  const [studyLogFilter, setStudyLogFilter] = useState<'all' | 'photos'>('all');
 
   const toggleExamExpand = (id: string) => {
     setExpandedExamIds((prev) =>
@@ -61,6 +64,10 @@ export const MentorOverview: React.FC<{ onNavigateToTab: (tab: string) => void }
   const activeTasks = tasks.filter((t) => t.status === 'active');
   const completedTasks = activeTasks.filter((t) => t.isCompleted).length;
   const taskCompletionRate = activeTasks.length > 0 ? Math.round((completedTasks / activeTasks.length) * 100) : 0;
+
+  // Study log filtering
+  const photoLogs = studyLogs.filter((l) => l.images && l.images.length > 0);
+  const displayedLogs = studyLogFilter === 'photos' ? photoLogs : studyLogs;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -378,14 +385,14 @@ export const MentorOverview: React.FC<{ onNavigateToTab: (tab: string) => void }
         )}
       </div>
 
-      {/* SECTION: STUDENT STUDY & QUESTION PHOTOS */}
+      {/* SECTION: STUDENT STUDY & QUESTION HISTORY */}
       <div className="glass-panel" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isStudyLogsPanelOpen ? '20px' : '0', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{
-                width: '36px',
-                height: '36px',
+                width: '38px',
+                height: '38px',
                 borderRadius: '10px',
                 background: 'rgba(99, 102, 241, 0.15)',
                 color: '#818cf8',
@@ -394,154 +401,262 @@ export const MentorOverview: React.FC<{ onNavigateToTab: (tab: string) => void }
                 justifyContent: 'center',
               }}
             >
-              <Camera size={20} />
+              <BookOpen size={20} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Öğrencinin Çözüm & Çalışma Fotoğrafları</h3>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Öğrencinin Soru Çözüm & Çalışma Geçmişi</h3>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Öğrencinin günlük soru girişlerine eklediği defter, test ve çözüm fotoğrafları
+                Öğrencinin kaydettiği tüm soru çözümleri, netleri ve yüklediği çalışma fotoğrafları
               </p>
             </div>
           </div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-            {studyLogs.filter((l) => l.images && l.images.length > 0).length} Kayıt Fotoğraflı
-          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Filter Pills */}
+            <div style={{ display: 'flex', background: 'rgba(0, 0, 0, 0.3)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <button
+                onClick={() => setStudyLogFilter('all')}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: studyLogFilter === 'all' ? '#6366f1' : 'transparent',
+                  color: studyLogFilter === 'all' ? '#fff' : 'var(--text-secondary)',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Tümü ({studyLogs.length})
+              </button>
+              <button
+                onClick={() => setStudyLogFilter('photos')}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: studyLogFilter === 'photos' ? '#6366f1' : 'transparent',
+                  color: studyLogFilter === 'photos' ? '#fff' : 'var(--text-secondary)',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <Camera size={13} />
+                <span>Fotoğraflılar ({photoLogs.length})</span>
+              </button>
+            </div>
+
+            {/* Collapse Toggle */}
+            <button
+              onClick={() => setIsStudyLogsPanelOpen(!isStudyLogsPanelOpen)}
+              className="btn btn-secondary btn-sm"
+              style={{ gap: '6px', padding: '6px 12px' }}
+              title={isStudyLogsPanelOpen ? 'Paneli Kapat' : 'Paneli Aç'}
+            >
+              {isStudyLogsPanelOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              <span>{isStudyLogsPanelOpen ? 'Paneli Daralt' : 'Paneli Aç'}</span>
+            </button>
+          </div>
         </div>
 
-        {studyLogs.filter((l) => l.images && l.images.length > 0).length === 0 ? (
-          <div
-            style={{
-              padding: '30px',
-              textAlign: 'center',
-              color: 'var(--text-muted)',
-              fontSize: '0.88rem',
-              background: 'rgba(15, 23, 42, 0.4)',
-              borderRadius: '12px',
-              border: '1px dashed rgba(255, 255, 255, 0.1)',
-            }}
-          >
-            <Camera size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
-            <div>Henüz fotoğraflı soru/çalışma girişi yapılmadı.</div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Öğrenci günlük soru girişi yaparken defter/kitap sayfası yüklediğinde burada inceleyebilirsiniz.
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {studyLogs
-              .filter((l) => l.images && l.images.length > 0)
-              .map((log) => (
-                <div
-                  key={log.id}
-                  style={{
-                    padding: '16px',
-                    borderRadius: '12px',
-                    background: 'rgba(15, 23, 42, 0.6)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '12px',
-                      flexWrap: 'wrap',
-                      gap: '8px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span
-                        style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 800,
-                          color: log.subject === 'Matematik' ? '#818cf8' : log.subject === 'Fen Bilimleri' ? '#34d399' : '#f472b6',
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                        }}
-                      >
-                        {log.subject}
-                      </span>
-                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff' }}>
-                        {log.topicName}
-                      </span>
-                    </div>
+        {isStudyLogsPanelOpen && (
+          <div>
+            {displayedLogs.length === 0 ? (
+              <div
+                style={{
+                  padding: '36px 20px',
+                  textAlign: 'center',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.88rem',
+                  background: 'rgba(15, 23, 42, 0.4)',
+                  borderRadius: '12px',
+                  border: '1px dashed rgba(255, 255, 255, 0.1)',
+                }}
+              >
+                <BookOpen size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                <div>
+                  {studyLogFilter === 'photos'
+                    ? 'Henüz fotoğraflı soru/çalışma girişi yapılmadı.'
+                    : 'Henüz kaydedilmiş soru veya çalışma girişi bulunmuyor.'}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Öğrenci "Veri Gir" bölümünden soru çözümü girdikçe burada tarih ve netleriyle listelenecektir.
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {displayedLogs.map((log) => {
+                  const hasImages = log.images && log.images.length > 0;
+                  const net = Math.max(0, log.correct - log.incorrect / 3).toFixed(1);
+                  const subColor =
+                    log.subject === 'Matematik'
+                      ? '#818cf8'
+                      : log.subject === 'Fen Bilimleri'
+                      ? '#34d399'
+                      : log.subject === 'Türkçe'
+                      ? '#f472b6'
+                      : log.subject === 'T.C. İnkılap Tarihi'
+                      ? '#38bdf8'
+                      : log.subject === 'Din Kültürü'
+                      ? '#fbbf24'
+                      : '#a78bfa';
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', flexWrap: 'wrap' }}>
-                      <span style={{ color: '#34d399', fontWeight: 700 }}>{log.correct} Doğru</span>
-                      <span style={{ color: '#f87171', fontWeight: 700 }}>{log.incorrect} Yanlış</span>
-                      {log.blank > 0 && <span style={{ color: 'var(--text-muted)' }}>{log.blank} Boş</span>}
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>• {log.logDate}</span>
-                      <button
-                        onClick={() => {
-                          if (window.confirm('Bu çalışma kaydını ve fotoğraflarını silmek istediğinize emin misiniz?')) {
-                            deleteStudyLog(log.id);
-                          }
-                        }}
-                        className="btn btn-danger btn-sm"
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '0.75rem',
-                          gap: '4px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          background: 'rgba(239, 68, 68, 0.15)',
-                          borderColor: 'rgba(239, 68, 68, 0.3)',
-                        }}
-                        title="Bu Çalışma ve Fotoğraflarını Sil"
-                      >
-                        <Trash2 size={13} color="#fca5a5" />
-                        <span style={{ color: '#fca5a5' }}>Sil</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Photo thumbnails grid */}
-                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                    {log.images!.map((img, imgIdx) => (
+                  return (
+                    <div
+                      key={log.id}
+                      style={{
+                        padding: '16px',
+                        borderRadius: '12px',
+                        background: 'rgba(15, 23, 42, 0.6)',
+                        border: '1px solid var(--border-subtle)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
                       <div
-                        key={imgIdx}
-                        onClick={() => setLightboxImage(img)}
                         style={{
-                          position: 'relative',
-                          width: '100px',
-                          height: '100px',
-                          borderRadius: '10px',
-                          overflow: 'hidden',
-                          cursor: 'pointer',
-                          border: '1px solid rgba(255, 255, 255, 0.15)',
-                          transition: 'transform 0.2s, box-shadow 0.2s',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: hasImages ? '12px' : '0',
+                          flexWrap: 'wrap',
+                          gap: '8px',
                         }}
-                        className="glass-card-interactive"
-                        title="Büyütmek için tıkla"
                       >
-                        <img
-                          src={img}
-                          alt={`${log.topicName} fotoğraf ${imgIdx + 1}`}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            inset: 0,
-                            background: 'rgba(0,0,0,0.25)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            opacity: 0,
-                            transition: 'opacity 0.2s',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-                          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
-                        >
-                          <Maximize2 size={20} color="#fff" />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              color: subColor,
+                              background: 'rgba(255, 255, 255, 0.06)',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                            }}
+                          >
+                            {log.subject}
+                          </span>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
+                            {log.topicName}
+                          </span>
+                          {hasImages ? (
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                color: '#6ee7b7',
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              <Camera size={12} />
+                              <span>{log.images!.length} Fotoğraf</span>
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: '0.7rem',
+                                color: 'var(--text-muted)',
+                                background: 'rgba(255, 255, 255, 0.04)',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                              }}
+                            >
+                              Fotoğrafsız Giriş
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', flexWrap: 'wrap' }}>
+                          <span style={{ color: '#818cf8', fontWeight: 800, fontSize: '0.88rem' }}>{net} Net</span>
+                          <span style={{ color: 'var(--text-muted)' }}>•</span>
+                          <span style={{ color: '#34d399', fontWeight: 700 }}>{log.correct} Doğru</span>
+                          <span style={{ color: '#f87171', fontWeight: 700 }}>{log.incorrect} Yanlış</span>
+                          {log.blank > 0 && <span style={{ color: 'var(--text-muted)' }}>{log.blank} Boş</span>}
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>• 📅 {log.logDate}</span>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`"${log.topicName}" dersine ait bu çalışma kaydını silmek istediğinize emin misiniz?`)) {
+                                deleteStudyLog(log.id);
+                              }
+                            }}
+                            className="btn btn-danger btn-sm"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '0.75rem',
+                              gap: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              borderColor: 'rgba(239, 68, 68, 0.3)',
+                            }}
+                            title="Bu Çalışma Kaydını Sil"
+                          >
+                            <Trash2 size={13} color="#fca5a5" />
+                            <span style={{ color: '#fca5a5' }}>Sil</span>
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+
+                      {/* Photo thumbnails grid */}
+                      {hasImages && (
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '10px' }}>
+                          {log.images!.map((img, imgIdx) => (
+                            <div
+                              key={imgIdx}
+                              onClick={() => setLightboxImage(img)}
+                              style={{
+                                position: 'relative',
+                                width: '100px',
+                                height: '100px',
+                                borderRadius: '10px',
+                                overflow: 'hidden',
+                                cursor: 'pointer',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                              }}
+                              className="glass-card-interactive"
+                              title="Büyütmek için tıkla"
+                            >
+                              <img
+                                src={img}
+                                alt={`${log.topicName} fotoğraf ${imgIdx + 1}`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: 0,
+                                  background: 'rgba(0,0,0,0.25)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  opacity: 0,
+                                  transition: 'opacity 0.2s',
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                                onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                              >
+                                <Maximize2 size={20} color="#fff" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
