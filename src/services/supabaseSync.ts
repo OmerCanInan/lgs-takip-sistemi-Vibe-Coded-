@@ -224,12 +224,30 @@ export async function syncStudyLogToSupabase(log: StudyLog) {
   }
 }
 
+export async function deleteStudyLogFromSupabase(logId: string) {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    await supabase.from('study_logs').delete().eq('id', logId);
+  } catch (err) {
+    console.warn('Supabase study_log delete failed:', err);
+  }
+}
+
 export async function syncExamToSupabase(exam: ExamResult) {
   if (!isSupabaseConfigured || !supabase) return;
   try {
     await supabase.from('exams').upsert(mapExamToDb(exam));
   } catch (err) {
     console.warn('Supabase exam sync failed:', err);
+  }
+}
+
+export async function deleteExamFromSupabase(examId: string) {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    await supabase.from('exams').delete().eq('id', examId);
+  } catch (err) {
+    console.warn('Supabase exam delete failed:', err);
   }
 }
 

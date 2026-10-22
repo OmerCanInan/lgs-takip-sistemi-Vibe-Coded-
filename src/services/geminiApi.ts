@@ -155,27 +155,38 @@ export async function generateWeeklyPlanFromGemini(context: {
   currentTasks: { title: string; subject: string; isCompleted: boolean }[];
   customInstruction?: string;
 }): Promise<{ title: string; subject: string; topicName: string; targetCount: number }[]> {
-  const customText = context.customInstruction?.trim();
+  const customText = context.customInstruction?.trim() || '';
   const instructionPart = customText
     ? `\nKULLANICI / MENTÖRÜN ÖZEL ROTA TALİMATI:
 "${customText}"
-Bu özel talebi MUTLAKA en yüksek öncelikle plana yansıt, talepte belirtilen ders/konu/hedeflere uygun görevler üret.\n`
+ÖNEMLİ KURAL: Bu özel talebi MUTLAKA en yüksek öncelikle plana yansıt! 
+- Eğer talimatta Atatürk, inkılap, milli mücadele, tarih geçiyorsa subject "T.C. İnkılap Tarihi" olmalıdır.
+- Eğer matematik, üslü, kareköklü, çarpanlar geçiyorsa subject "Matematik" olmalıdır.
+- Eğer fen, basınç, dna, kalıtım, iklim geçiyorsa subject "Fen Bilimleri" olmalıdır.
+- Eğer paragraf, fiilimsi, dil bilgisi geçiyorsa subject "Türkçe" olmalıdır.
+- Görev başlığını profesyonel bir LGS çalışma başlığı olarak yaz (Örn: "Bir Kahraman Doğuyor 30 Soru", "Cebirsel İfadeler Soru Çözümü 25 Soru"). Talimat cümlesini aynen başlığa yapıştırma!\n`
     : '';
 
-  const prompt = `Sen LGS hazırlık koçusun. Öğrencinin mevcut çalışma verilerine ve mentörün özel talimatlarına göre haftalık plan (2-4 görev) öner.
+  const prompt = `Sen LGS hazırlık koçusun. 8. sınıf öğrencisi için haftalık çalışma planı (2-4 görev) öner.
 
 VERİLER:
 - Son çalışmalar: ${JSON.stringify(context.studyLogs.slice(-15))}
 - Mevcut görevler: ${JSON.stringify(context.currentTasks.slice(-5))}
 ${instructionPart}
-Zayıf konulara ve varsa yukarıdaki özel talimata öncelik ver. LGS müfredatından konular seç.
+Zayıf konulara ve varsa yukarıdaki özel talimata öncelik ver. LGS müfredatından gerçek konular seç.
 
-CEVAP FORMATI (sadece JSON array, başka bir şey yazma):
+CEVAP FORMATI (Sadece JSON array, kesinlikle başka hiçbir yazı veya markdown backtick ekleme):
 [
-  { "title": "Görev başlığı ve soru sayısı", "subject": "Ders adı", "topicName": "Konu adı", "targetCount": 25 }
+  { "title": "Ders ve Konu Başlığı 30 Soru", "subject": "Ders adı", "topicName": "Müfredat Konu Adı", "targetCount": 30 }
 ]
 
-Ders adları sadece şunlardan biri olsun: Matematik, Fen Bilimleri, Türkçe, T.C. İnkılap Tarihi, Din Kültürü, İngilizce`;
+Ders adları sadece şunlardan biri olabilir:
+- Matematik
+- Fen Bilimleri
+- Türkçe
+- T.C. İnkılap Tarihi
+- Din Kültürü
+- İngilizce`;
 
   try {
     const response = await fetch(GEMINI_API_URL, {
@@ -185,7 +196,7 @@ Ders adları sadece şunlardan biri olsun: Matematik, Fen Bilimleri, Türkçe, T
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 8192,
           responseMimeType: 'application/json',
         },
       }),
@@ -201,19 +212,29 @@ Ders adları sadece şunlardan biri olsun: Matematik, Fen Bilimleri, Türkçe, T
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     console.error('Weekly plan generation failed:', error);
-    return [
-      {
-        title: customText ? `${customText.slice(0, 30)} - Pekiştirme 25 Soru` : 'Matematik Kuvvetlendirme 25 Soru',
-        subject: 'Matematik',
-        topicName: 'Genel Tekrar',
-        targetCount: 25,
-      },
-      {
-        title: 'Fen Bilimleri Deneme Çözümü 20 Soru',
-        subject: 'Fen Bilimleri',
-        topicName: 'Genel Tekrar',
-        targetCount: 20,
-      },
-    ];
+
+    // Smart fallback based on custom text if API fails or network offline
+    const lower = customText.toLowerCase();
+    if (lower.includes('atatürk') || lower.includes('tarih') || lower.includes('inkılap')) {
+      return [
+        { title: "Bir Kahraman Doğuyor - Atatürk'ün Hayatı 30 Soru", subject: 'T.C. İnkılap Tarihi', topicName: 'Bir Kahraman Doğuyor', targetCount: 30 },
+        { title: 'Milli Uyanış ve Bağımsızlık Yolunda 30 Soru', subject: 'T.C. İnkılap Tarihi', topicName: 'Milli Uyanış: Bağımsızlık Yolunda Atılan Adımlar', targetCount: 30 },
+      ];
+    } else if (lower.includes('fen') || lower.includes('basınç') || lower.includes('dna') || lower.includes('kalıtım')) {
+      return [
+        { title: 'DNA ve Genetik Kod Pekiştirme 30 Soru', subject: 'Fen Bilimleri', topicName: 'DNA ve Genetik Kod', targetCount: 30 },
+        { title: 'Basınç Ünitesi Yeni Nesil Sorular 25 Soru', subject: 'Fen Bilimleri', topicName: 'Basınç', targetCount: 25 },
+      ];
+    } else if (lower.includes('türkçe') || lower.includes('paragraf') || lower.includes('fiilimsi')) {
+      return [
+        { title: 'Paragrafta Anlam ve Muhakeme 30 Soru', subject: 'Türkçe', topicName: 'Paragrafta Anlam', targetCount: 30 },
+        { title: 'Fiilimsiler Soru Çözümü 25 Soru', subject: 'Türkçe', topicName: 'Fiilimsiler', targetCount: 25 },
+      ];
+    } else {
+      return [
+        { title: 'Çarpanlar ve Katlar Pekiştirme 30 Soru', subject: 'Matematik', topicName: 'Çarpanlar ve Katlar', targetCount: 30 },
+        { title: 'Fen Bilimleri Mevsimler ve İklim 25 Soru', subject: 'Fen Bilimleri', topicName: 'Mevsimler ve İklim', targetCount: 25 },
+      ];
+    }
   }
 }

@@ -15,6 +15,7 @@ import {
   FileSpreadsheet,
   ChevronDown,
   ChevronUp,
+  Trash2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { ExamResult } from '../../types';
@@ -25,6 +26,7 @@ export const MentorOverview: React.FC<{ onNavigateToTab: (tab: string) => void }
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [selectedExamForModal, setSelectedExamForModal] = useState<ExamResult | null>(null);
   const [expandedExamIds, setExpandedExamIds] = useState<string[]>([]);
+  const [isExamsPanelOpen, setIsExamsPanelOpen] = useState(true);
 
   const toggleExamExpand = (id: string) => {
     setExpandedExamIds((prev) =>
@@ -44,6 +46,8 @@ export const MentorOverview: React.FC<{ onNavigateToTab: (tab: string) => void }
     pendingQuestionsCount,
     draftTasksCount,
     currentIntensity,
+    deleteExam,
+    deleteStudyLog,
   } = useApp();
 
   // Weekly questions & accuracy
@@ -161,98 +165,129 @@ export const MentorOverview: React.FC<{ onNavigateToTab: (tab: string) => void }
 
       {/* Exam Net Progression Graph & Breakdown */}
       <div className="glass-panel" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isExamsPanelOpen ? '20px' : '0', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Deneme Net Gelişim Grafiği</h3>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               Son denemelerin ders bazlı netleri ve toplam net ilerlemesi
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', fontSize: '0.78rem' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#818cf8' }} /> Matematik
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#34d399' }} /> Fen
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#f472b6' }} /> Türkçe
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px', fontSize: '0.78rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#818cf8' }} /> Matematik
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#34d399' }} /> Fen
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#f472b6' }} /> Türkçe
+              </span>
+            </div>
+            <button
+              onClick={() => setIsExamsPanelOpen(!isExamsPanelOpen)}
+              className="btn btn-secondary btn-sm"
+              style={{ gap: '6px', padding: '6px 12px' }}
+              title={isExamsPanelOpen ? 'Denemeler Panelini Kapat' : 'Denemeler Panelini Aç'}
+            >
+              {isExamsPanelOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              <span>{isExamsPanelOpen ? 'Paneli Daralt' : 'Paneli Aç'}</span>
+            </button>
           </div>
         </div>
 
         {/* Visual Bar Progression and Exam List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {exams.length === 0 ? (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '36px 16px',
-                color: 'var(--text-muted)',
-                fontSize: '0.88rem',
-              }}
-            >
-              Henüz kaydedilmiş deneme sınavı bulunmuyor. İlk denemenizi girdiğinizde net gelişimi burada grafik olarak görünecektir.
-            </div>
-          ) : (
-            exams.map((exam) => {
-              const isExpanded = expandedExamIds.includes(exam.id);
-              const totalD = exam.subjects.reduce((a, s) => a + (Number(s.correct) || 0), 0);
-              const totalY = exam.subjects.reduce((a, s) => a + (Number(s.incorrect) || 0), 0);
-              const totalB = exam.subjects.reduce((a, s) => a + (Number(s.blank) || 0), 0);
-              const successPercent = Math.min(100, Math.max(0, (exam.totalNet / 90) * 100)).toFixed(1);
+        {isExamsPanelOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {exams.length === 0 ? (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '36px 16px',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.88rem',
+                }}
+              >
+                Henüz kaydedilmiş deneme sınavı bulunmuyor. İlk denemenizi girdiğinizde net gelişimi burada grafik olarak görünecektir.
+              </div>
+            ) : (
+              exams.map((exam) => {
+                const isExpanded = expandedExamIds.includes(exam.id);
+                const totalD = exam.subjects.reduce((a, s) => a + (Number(s.correct) || 0), 0);
+                const totalY = exam.subjects.reduce((a, s) => a + (Number(s.incorrect) || 0), 0);
+                const totalB = exam.subjects.reduce((a, s) => a + (Number(s.blank) || 0), 0);
+                const successPercent = Math.min(100, Math.max(0, (exam.totalNet / 90) * 100)).toFixed(1);
 
-              return (
-                <div
-                  key={exam.id}
-                  style={{
-                    background: 'rgba(15, 23, 42, 0.7)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '18px',
-                    border: '1px solid var(--border-subtle)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#fff' }}>{exam.examName}</span>
-                        <span style={{ fontSize: '0.75rem', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.15)', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
-                          %{successPercent} Başarı
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        📅 {exam.examDate} • Toplam {totalD} Doğru, {totalY} Yanlış, {totalB} Boş
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#6ee7b7' }}>
-                          {exam.totalNet.toFixed(2)} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ 90 Net</span>
+                return (
+                  <div
+                    key={exam.id}
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.7)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '18px',
+                      border: '1px solid var(--border-subtle)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#fff' }}>{exam.examName}</span>
+                          <span style={{ fontSize: '0.75rem', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.15)', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                            %{successPercent} Başarı
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          📅 {exam.examDate} • Toplam {totalD} Doğru, {totalY} Yanlış, {totalB} Boş
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => setSelectedExamForModal(exam)}
-                        className="btn btn-primary btn-sm"
-                        style={{ gap: '6px', padding: '8px 14px', fontSize: '0.8rem' }}
-                        title="Tüm netleri ve karne detaylarını aç"
-                      >
-                        <Eye size={16} />
-                        <span>Karnesi & Netleri İncele</span>
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <div style={{ textAlign: 'right', marginRight: '6px' }}>
+                          <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#6ee7b7' }}>
+                            {exam.totalNet.toFixed(2)} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ 90 Net</span>
+                          </div>
+                        </div>
 
-                      <button
-                        onClick={() => toggleExamExpand(exam.id)}
-                        className="btn btn-secondary btn-sm"
-                        style={{ padding: '8px 10px', fontSize: '0.8rem' }}
-                        title={isExpanded ? 'Tabloyu Gizle' : 'Hızlı Tabloyu Gör'}
-                      >
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      </button>
+                        <button
+                          onClick={() => setSelectedExamForModal(exam)}
+                          className="btn btn-primary btn-sm"
+                          style={{ gap: '6px', padding: '8px 14px', fontSize: '0.8rem' }}
+                          title="Tüm netleri ve karne detaylarını aç"
+                        >
+                          <Eye size={16} />
+                          <span>Karnesi & Netleri İncele</span>
+                        </button>
+
+                        <button
+                          onClick={() => toggleExamExpand(exam.id)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '8px 10px', fontSize: '0.8rem' }}
+                          title={isExpanded ? 'Tabloyu Gizle' : 'Hızlı Tabloyu Gör'}
+                        >
+                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`"${exam.examName}" deneme sonucunu silmek istediğinize emin misiniz?`)) {
+                              deleteExam(exam.id);
+                            }
+                          }}
+                          className="btn btn-danger btn-sm"
+                          style={{
+                            padding: '8px 10px',
+                            fontSize: '0.8rem',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            borderColor: 'rgba(239, 68, 68, 0.3)',
+                          }}
+                          title="Bu Denemeyi Sil"
+                        >
+                          <Trash2 size={16} color="#fca5a5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
                   {/* 6 Subjects Quick Badge Grid */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: isExpanded ? '16px' : '0' }}>
@@ -340,6 +375,7 @@ export const MentorOverview: React.FC<{ onNavigateToTab: (tab: string) => void }
             })
           )}
         </div>
+        )}
       </div>
 
       {/* SECTION: STUDENT STUDY & QUESTION PHOTOS */}
@@ -432,11 +468,32 @@ export const MentorOverview: React.FC<{ onNavigateToTab: (tab: string) => void }
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.8rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', flexWrap: 'wrap' }}>
                       <span style={{ color: '#34d399', fontWeight: 700 }}>{log.correct} Doğru</span>
                       <span style={{ color: '#f87171', fontWeight: 700 }}>{log.incorrect} Yanlış</span>
                       {log.blank > 0 && <span style={{ color: 'var(--text-muted)' }}>{log.blank} Boş</span>}
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>• {log.logDate}</span>
+                      <button
+                        onClick={() => {
+                          if (window.confirm('Bu çalışma kaydını ve fotoğraflarını silmek istediğinize emin misiniz?')) {
+                            deleteStudyLog(log.id);
+                          }
+                        }}
+                        className="btn btn-danger btn-sm"
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '0.75rem',
+                          gap: '4px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          borderColor: 'rgba(239, 68, 68, 0.3)',
+                        }}
+                        title="Bu Çalışma ve Fotoğraflarını Sil"
+                      >
+                        <Trash2 size={13} color="#fca5a5" />
+                        <span style={{ color: '#fca5a5' }}>Sil</span>
+                      </button>
                     </div>
                   </div>
 
@@ -751,7 +808,28 @@ export const MentorOverview: React.FC<{ onNavigateToTab: (tab: string) => void }
               </div>
 
               {/* Action buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`"${exam.examName}" deneme sonucunu silmek istediğinize emin misiniz?`)) {
+                      deleteExam(exam.id);
+                      setSelectedExamForModal(null);
+                    }
+                  }}
+                  className="btn btn-danger"
+                  style={{
+                    padding: '9px 18px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    borderColor: 'rgba(239, 68, 68, 0.4)',
+                  }}
+                >
+                  <Trash2 size={16} />
+                  <span>Denemeyi Sil</span>
+                </button>
+
                 <button
                   onClick={() => setSelectedExamForModal(null)}
                   className="btn btn-primary"

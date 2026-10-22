@@ -35,7 +35,9 @@ import {
   syncTaskToSupabase,
   deleteTaskFromSupabase,
   syncStudyLogToSupabase,
+  deleteStudyLogFromSupabase,
   syncExamToSupabase,
+  deleteExamFromSupabase,
   syncQuestionToSupabase,
   syncChatMessageToSupabase,
   syncAiReportToSupabase,
@@ -73,8 +75,10 @@ interface AppContextType {
   approveAllDraftTasks: () => void;
   studyLogs: StudyLog[];
   addStudyLog: (log: Omit<StudyLog, 'id' | 'createdAt' | 'studentId'>) => void;
+  deleteStudyLog: (logId: string) => void;
   exams: ExamResult[];
   addExamResult: (exam: Omit<ExamResult, 'id' | 'studentId'>) => void;
+  deleteExam: (examId: string) => void;
   questions: QuestionItem[];
   addQuestion: (question: { subject: SubjectName; topicId?: string; note: string; images: string[] }) => void;
   answerQuestionByMentor: (questionId: string, text: string, images?: string[]) => void;
@@ -364,6 +368,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const idx = prev.findIndex((l) => l.id === item.id);
             return idx >= 0 ? prev.map((l) => (l.id === item.id ? item : l)) : [item, ...prev];
           });
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          setStudyLogs((prev) => prev.filter((l) => l.id !== (payload.old as any).id));
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'exams' }, (payload) => {
@@ -373,6 +379,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const idx = prev.findIndex((e) => e.id === item.id);
             return idx >= 0 ? prev.map((e) => (e.id === item.id ? item : e)) : [item, ...prev];
           });
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          setExams((prev) => prev.filter((e) => e.id !== (payload.old as any).id));
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'questions' }, (payload) => {
@@ -624,6 +632,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {}
   };
 
+  // Delete Study Log
+  const deleteStudyLog = (logId: string) => {
+    setStudyLogs((prev) => prev.filter((l) => l.id !== logId));
+    deleteStudyLogFromSupabase(logId);
+  };
+
   // Add Exam Result
   const addExamResult = (examData: Omit<ExamResult, 'id' | 'studentId'>) => {
     const newExam: ExamResult = {
@@ -641,6 +655,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         colors: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'],
       });
     } catch {}
+  };
+
+  // Delete Exam Result
+  const deleteExam = (examId: string) => {
+    setExams((prev) => prev.filter((e) => e.id !== examId));
+    deleteExamFromSupabase(examId);
   };
 
   // Add Question to Soru Kutusu
@@ -1013,8 +1033,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         approveAllDraftTasks,
         studyLogs,
         addStudyLog,
+        deleteStudyLog,
         exams,
         addExamResult,
+        deleteExam,
         questions,
         addQuestion,
         answerQuestionByMentor,
