@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, ShieldCheck, UserCheck, Smartphone, Monitor, Sparkles } from 'lucide-react';
+import { Flame, ShieldCheck, UserCheck, Smartphone, Monitor, Sparkles, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 interface HeaderProps {
@@ -9,6 +9,8 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ previewMode, setPreviewMode }) => {
   const {
+    currentUser,
+    logout,
     role,
     setRole,
     streakDays,
@@ -197,71 +199,116 @@ export const Header: React.FC<HeaderProps> = ({ previewMode, setPreviewMode }) =
             )}
           </button>
 
-          {/* Active Role Selector Switch */}
-          <div
-            style={{
-              display: 'flex',
-              background: 'rgba(15, 23, 42, 0.9)',
-              padding: '4px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <button
-              onClick={() => setRole('student')}
+          {/* Active Role Selector Switch (or Student Indicator) */}
+          {currentUser?.role === 'student' ? (
+            <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 padding: '6px 14px',
-                borderRadius: '10px',
-                border: 'none',
-                background: role === 'student' ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' : 'transparent',
-                color: role === 'student' ? '#fff' : 'var(--text-secondary)',
-                fontWeight: 700,
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(99, 102, 241, 0.15)',
+                color: '#a5b4fc',
+                fontWeight: 800,
                 fontSize: '0.82rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
               }}
             >
               <UserCheck size={15} />
-              <span>Öğrenci</span>
-            </button>
+              <span>Öykü</span>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'flex',
+                background: 'rgba(15, 23, 42, 0.9)',
+                padding: '4px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              <button
+                onClick={() => setRole('student')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: role === 'student' ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' : 'transparent',
+                  color: role === 'student' ? '#fff' : 'var(--text-secondary)',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <UserCheck size={15} />
+                <span>Öğrenci</span>
+              </button>
+              <button
+                onClick={() => setRole('mentor')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: role === 'mentor' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'transparent',
+                  color: role === 'mentor' ? '#fff' : 'var(--text-secondary)',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  position: 'relative',
+                }}
+              >
+                <ShieldCheck size={15} />
+                <span>Mentor</span>
+                {(pendingQuestionsCount > 0 || draftTasksCount > 0) && (
+                  <span
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: '#ef4444',
+                      position: 'absolute',
+                      top: '4px',
+                      right: '4px',
+                    }}
+                  />
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Logout Button */}
+          {currentUser && (
             <button
-              onClick={() => setRole('mentor')}
+              onClick={logout}
+              title="Çıkış Yap"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '10px',
-                border: 'none',
-                background: role === 'mentor' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'transparent',
-                color: role === 'mentor' ? '#fff' : 'var(--text-secondary)',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                color: '#fca5a5',
+                fontSize: '0.8rem',
                 fontWeight: 700,
-                fontSize: '0.82rem',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                position: 'relative',
               }}
             >
-              <ShieldCheck size={15} />
-              <span>Mentor</span>
-              {(pendingQuestionsCount > 0 || draftTasksCount > 0) && (
-                <span
-                  style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    background: '#ef4444',
-                    position: 'absolute',
-                    top: '4px',
-                    right: '4px',
-                  }}
-                />
-              )}
+              <LogOut size={14} />
+              <span>Çıkış</span>
             </button>
-          </div>
+          )}
         </div>
       </div>
     </header>

@@ -12,6 +12,7 @@ import {
 } from '../data/mockData';
 import type {
   AiReport,
+  AuthUser,
   ChatMessage,
   CurriculumTopic,
   ExamResult,
@@ -52,6 +53,9 @@ interface TopicMastery {
 }
 
 interface AppContextType {
+  currentUser: AuthUser | null;
+  login: (username: string, password: string) => { success: boolean; error?: string };
+  logout: () => void;
   role: UserRole;
   setRole: (role: UserRole) => void;
   studentName: string;
@@ -120,8 +124,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const [role, setRoleState] = useState<UserRole>(() => getStored('role', 'student'));
-  const [studentName] = useState('Ali (8. Sınıf)');
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => getStored('auth_user', null));
+  const [role, setRoleState] = useState<UserRole>(() => {
+    const savedUser = getStored<AuthUser | null>('auth_user', null);
+    if (savedUser) return savedUser.role;
+    return getStored('role', 'student');
+  });
+  const [studentName] = useState('Öykü (8. Sınıf)');
   const [mentorName] = useState('Kaan');
   const [intensityLevel, setIntensityLevelState] = useState<number>(() => getStored('intensity', 3));
   const [tasks, setTasks] = useState<TaskItem[]>(() => getStored('tasks', INITIAL_TASKS));
@@ -130,6 +139,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [questions, setQuestions] = useState<QuestionItem[]>(() => getStored('questions', INITIAL_QUESTIONS));
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => getStored('chat', INITIAL_AI_CHAT));
   const [aiReports, setAiReports] = useState<AiReport[]>(() => getStored('reports', INITIAL_AI_REPORTS));
+
+  // Sync auth state
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('lgs_auth_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('lgs_auth_user');
+    }
+  }, [currentUser]);
+
+  // Login handler
+  const login = (usernameInput: string, passwordInput: string) => {
+    const u = usernameInput.trim().toLowerCase();
+    const p = passwordInput.trim();
+
+    // Student credentials: "öyküöykü" / "öykü1234"
+    if ((u === 'öyküöykü' || u === 'oykuoyku') && (p === 'öykü1234' || p === 'oyku1234')) {
+      const user: AuthUser = {
+        username: 'öyküöykü',
+        role: 'student',
+        displayName: 'Öykü',
+      };
+      setCurrentUser(user);
+      setRoleState('student');
+      try {
+        localStorage.setItem('lgs_auth_user', JSON.stringify(user));
+        localStorage.setItem('lgs_role', JSON.stringify('student'));
+      } catch {}
+      return { success: true };
+    }
+
+    // Admin credentials: "admin" / "adminMf130805"
+    if (u === 'admin' && p === 'adminMf130805') {
+      const user: AuthUser = {
+        username: 'admin',
+        role: 'mentor',
+        displayName: 'Admin / Mentor',
+      };
+      setCurrentUser(user);
+      setRoleState('mentor');
+      try {
+        localStorage.setItem('lgs_auth_user', JSON.stringify(user));
+        localStorage.setItem('lgs_role', JSON.stringify('mentor'));
+      } catch {}
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: 'Kullanıcı adı veya şifre hatalı. Lütfen tekrar deneyin.',
+    };
+  };
+
+  // Logout handler
+  const logout = () => {
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem('lgs_auth_user');
+    } catch {}
+  };
 
   // Sync to local storage
   useEffect(() => {
@@ -915,6 +984,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
+        currentUser,
+        login,
+        logout,
         role,
         setRole,
         studentName,

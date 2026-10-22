@@ -3,11 +3,17 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { StudentView } from './components/student/StudentView';
 import { MentorView } from './components/mentor/MentorView';
+import { LoginView } from './components/auth/LoginView';
 import { Smartphone, RotateCcw } from 'lucide-react';
 
 const MainApp: React.FC = () => {
-  const { role, resetToDefaults } = useApp();
+  const { role, resetToDefaults, currentUser } = useApp();
   const [previewMode, setPreviewMode] = useState<'mobile' | 'responsive'>('responsive');
+
+  // If not logged in, show Login Screen
+  if (!currentUser) {
+    return <LoginView />;
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>

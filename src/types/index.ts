@@ -1,5 +1,11 @@
 export type UserRole = 'student' | 'mentor';
 
+export interface AuthUser {
+  username: string;
+  role: UserRole;
+  displayName: string;
+}
+
 export const TYPES_VERSION = '1.0.0';
 
 export type SubjectName =
