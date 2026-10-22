@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import confetti from 'canvas-confetti';
 import {
   Calendar,
   CheckCircle2,
@@ -11,6 +12,10 @@ import {
   Image as ImageIcon,
   Play,
   BookOpen,
+  Camera,
+  Upload,
+  X,
+  CheckCircle,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StudentQuizModal } from '../quiz/StudentQuizModal';
@@ -66,6 +71,7 @@ export const StudentHome: React.FC<{ onNavigateToTab: (tab: 'home' | 'entry' | '
     currentIntensity,
     tasks,
     toggleTaskCompletion,
+    completeTaskWithResult,
     submitTaskQuiz,
     todaySolvedQuestions,
     todayDurationMinutes,
@@ -75,6 +81,88 @@ export const StudentHome: React.FC<{ onNavigateToTab: (tab: 'home' | 'entry' | '
   } = useApp();
 
   const [activeQuizTask, setActiveQuizTask] = useState<TaskItem | null>(null);
+  const [completingTask, setCompletingTask] = useState<TaskItem | null>(null);
+  const [completionCorrect, setCompletionCorrect] = useState<number | ''>('');
+  const [completionIncorrect, setCompletionIncorrect] = useState<number | ''>('');
+  const [completionBlank, setCompletionBlank] = useState<number | ''>('');
+  const [completionImages, setCompletionImages] = useState<string[]>([]);
+
+  // Client-side image compression
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1200;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+          } else {
+            resolve(e.target?.result as string);
+          }
+        };
+        img.onerror = () => resolve(e.target?.result as string);
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleCompletionPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    for (const file of Array.from(files)) {
+      try {
+        const compressed = await compressImage(file);
+        setCompletionImages((prev) => [...prev, compressed]);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setCompletionImages((prev) => [...prev, event.target!.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  };
+
+  const handleCompletionSubmit = () => {
+    if (!completingTask) return;
+    const c = Number(completionCorrect) || 0;
+    const inc = Number(completionIncorrect) || 0;
+    const b = Number(completionBlank) || 0;
+    if (c + inc + b === 0 && completionImages.length === 0) return;
+
+    completeTaskWithResult(completingTask.id, {
+      correct: c,
+      incorrect: inc,
+      blank: b,
+      images: completionImages.length > 0 ? completionImages : undefined,
+    });
+
+    setCompletingTask(null);
+    setCompletionCorrect('');
+    setCompletionIncorrect('');
+    setCompletionBlank('');
+    setCompletionImages([]);
+  };
 
   // Pick a random motivational quote on each load/entry
   const [motivation] = useState(() => {
@@ -307,6 +395,13 @@ export const StudentHome: React.FC<{ onNavigateToTab: (tab: 'home' | 'entry' | '
                 onClick={() => {
                   if (task.questions && task.questions.length > 0) {
                     setActiveQuizTask(task);
+                  } else if (!task.isCompleted) {
+                    // Open completion panel for target tasks
+                    setCompletingTask(task);
+                    setCompletionCorrect('');
+                    setCompletionIncorrect('');
+                    setCompletionBlank('');
+                    setCompletionImages([]);
                   } else {
                     toggleTaskCompletion(task.id);
                   }
@@ -373,6 +468,16 @@ export const StudentHome: React.FC<{ onNavigateToTab: (tab: 'home' | 'entry' | '
                   {task.quizResult && (
                     <div style={{ marginTop: '4px', fontSize: '0.78rem', color: '#34d399', fontWeight: 700 }}>
                       🎯 Başarı: %{task.quizResult.scorePercent} ({task.quizResult.correct}/{task.questions?.length || 0} Doğru)
+                    </div>
+                  )}
+
+                  {task.completionResult && (
+                    <div style={{ marginTop: '4px', fontSize: '0.78rem', color: '#34d399', fontWeight: 700 }}>
+                      📊 {task.completionResult.correct}D / {task.completionResult.incorrect}Y / {task.completionResult.blank}B
+                      {' '}({Math.max(0, task.completionResult.correct - task.completionResult.incorrect / 3).toFixed(2)} Net)
+                      {task.completionImages && task.completionImages.length > 0 && (
+                        <span style={{ marginLeft: '6px', color: '#a5b4fc' }}>📷 {task.completionImages.length}</span>
+                      )}
                     </div>
                   )}
 
@@ -496,6 +601,305 @@ export const StudentHome: React.FC<{ onNavigateToTab: (tab: 'home' | 'entry' | '
             setActiveQuizTask(null);
           }}
         />
+      )}
+
+      {/* TASK COMPLETION MODAL */}
+      {completingTask && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1050,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+          onClick={() => setCompletingTask(null)}
+        >
+          <div
+            className="glass-panel"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '28px',
+              background: '#0f172a',
+              borderRadius: '16px',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <CheckCircle size={22} color="#fff" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>Görevi Tamamla</h3>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>Sonuçlarını gir</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCompletingTask(null)}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  color: '#fff',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Task Info */}
+            <div
+              style={{
+                padding: '14px 16px',
+                borderRadius: '12px',
+                background: 'rgba(99, 102, 241, 0.1)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                marginBottom: '20px',
+              }}
+            >
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#818cf8', marginBottom: '4px' }}>
+                {completingTask.subject} • 🎯 {completingTask.targetCount} Soru Hedefi
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>
+                {completingTask.title}
+              </div>
+            </div>
+
+            {/* D/Y/B Inputs */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '10px', display: 'block' }}>
+                📊 Kaç soru çözdün? Sonuçlarını gir:
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6ee7b7', marginBottom: '4px', display: 'block' }}>Doğru</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="input-field"
+                    value={completionCorrect}
+                    onChange={(e) => setCompletionCorrect(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    placeholder=""
+                    style={{ borderColor: 'rgba(16, 185, 129, 0.4)', fontWeight: 700, textAlign: 'center', fontSize: '1.1rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fca5a5', marginBottom: '4px', display: 'block' }}>Yanlış</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="input-field"
+                    value={completionIncorrect}
+                    onChange={(e) => setCompletionIncorrect(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    placeholder=""
+                    style={{ borderColor: 'rgba(239, 68, 68, 0.4)', fontWeight: 700, textAlign: 'center', fontSize: '1.1rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '4px', display: 'block' }}>Boş</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="input-field"
+                    value={completionBlank}
+                    onChange={(e) => setCompletionBlank(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                    placeholder=""
+                    style={{ borderColor: 'rgba(148, 163, 184, 0.3)', fontWeight: 700, textAlign: 'center', fontSize: '1.1rem' }}
+                  />
+                </div>
+              </div>
+
+              {/* Live summary */}
+              {((Number(completionCorrect) || 0) + (Number(completionIncorrect) || 0) + (Number(completionBlank) || 0)) > 0 && (
+                <div
+                  style={{
+                    marginTop: '12px',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                    Toplam: <strong style={{ color: '#fff' }}>{(Number(completionCorrect) || 0) + (Number(completionIncorrect) || 0) + (Number(completionBlank) || 0)}</strong> / {completingTask.targetCount} Soru
+                  </div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#34d399' }}>
+                    {Math.max(0, (Number(completionCorrect) || 0) - (Number(completionIncorrect) || 0) / 3).toFixed(2)} Net
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Photo Upload */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Camera size={16} color="#818cf8" />
+                  Çalışma Fotoğrafı (Opsiyonel)
+                </label>
+                {completionImages.length > 0 && (
+                  <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 700 }}>
+                    ✓ {completionImages.length} Fotoğraf
+                  </span>
+                )}
+              </div>
+
+              {/* Thumbnail previews */}
+              {completionImages.length > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                    marginBottom: '10px',
+                    padding: '8px',
+                    background: 'rgba(0, 0, 0, 0.25)',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                  }}
+                >
+                  {completionImages.map((img, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        position: 'relative',
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                      }}
+                    >
+                      <img
+                        src={img}
+                        alt={`Fotoğraf ${idx + 1}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setCompletionImages((prev) => prev.filter((_, i) => i !== idx))}
+                        style={{
+                          position: 'absolute',
+                          top: '2px',
+                          right: '2px',
+                          background: 'rgba(239, 68, 68, 0.85)',
+                          border: 'none',
+                          color: '#fff',
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '10px',
+                  border: '1px dashed rgba(99, 102, 241, 0.4)',
+                  borderRadius: '10px',
+                  background: 'rgba(99, 102, 241, 0.05)',
+                  color: '#a5b4fc',
+                  fontWeight: 600,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <Upload size={16} />
+                <span>Fotoğraf Çek veya Galeriden Seç</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={handleCompletionPhotoUpload}
+                />
+              </label>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              onClick={handleCompletionSubmit}
+              disabled={
+                ((Number(completionCorrect) || 0) + (Number(completionIncorrect) || 0) + (Number(completionBlank) || 0)) === 0 &&
+                completionImages.length === 0
+              }
+              style={{
+                width: '100%',
+                padding: '14px',
+                border: 'none',
+                borderRadius: '12px',
+                background:
+                  ((Number(completionCorrect) || 0) + (Number(completionIncorrect) || 0) + (Number(completionBlank) || 0)) === 0 &&
+                  completionImages.length === 0
+                    ? 'rgba(99, 102, 241, 0.3)'
+                    : 'linear-gradient(135deg, #10b981, #059669)',
+                color: '#fff',
+                fontWeight: 800,
+                fontSize: '0.95rem',
+                cursor:
+                  ((Number(completionCorrect) || 0) + (Number(completionIncorrect) || 0) + (Number(completionBlank) || 0)) === 0 &&
+                  completionImages.length === 0
+                    ? 'not-allowed'
+                    : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                opacity:
+                  ((Number(completionCorrect) || 0) + (Number(completionIncorrect) || 0) + (Number(completionBlank) || 0)) === 0 &&
+                  completionImages.length === 0
+                    ? 0.5
+                    : 1,
+              }}
+            >
+              <CheckCircle size={20} />
+              <span>Görevi Tamamla ve Kaydet</span>
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

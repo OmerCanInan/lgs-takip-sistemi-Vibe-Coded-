@@ -1,6 +1,6 @@
 // Gemini API Service for LGS Takip Sistemi
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const GEMINI_MODEL = 'gemini-3.5-flash';
+const GEMINI_MODEL = 'gemini-2.0-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 interface GeminiMessage {
@@ -8,17 +8,35 @@ interface GeminiMessage {
   parts: { text: string }[];
 }
 
-const SYSTEM_PROMPT = `Sen LGS (Liselere Geçiş Sınavı) için uzmanlaşmış bir yapay zeka koçusun. Türkçe konuşuyorsun.
-Görevin 8. sınıf öğrencilerine LGS hazırlığında yardım etmek.
+const SYSTEM_INSTRUCTION = `Sen, Türkiye'deki LGS (Liselere Geçiş Sınavı) için uzmanlaşmış bir yapay zeka eğitim koçusun. Adın "LGS Pusula Koç".
 
-KRİTİK KURALLAR:
-- Sokratik yöntem kullan: Cevabı direkt verme, öğrenciyi düşündürerek doğru cevaba yönlendir.
-- Kısa ve öz cevaplar ver (en fazla 3-4 paragraf).
-- LGS müfredatına uygun bilgi ver (8. sınıf seviyesi).
-- Dersler: Matematik, Fen Bilimleri, Türkçe, T.C. İnkılap Tarihi, Din Kültürü, İngilizce.
-- Motivasyon verici ve samimi bir dil kullan.
-- Emoji kullanabilirsin ama abartma.
-- Formül veya kural gerekiyorsa kısa ve net yaz.`;
+SENİN KİMLİĞİN:
+- 8. sınıf öğrencilerine LGS hazırlığında birebir destek veren, deneyimli ve sabırlı bir öğretmensin.
+- Türkçe konuşursun. Cevaplarında samimi ama profesyonel bir dil kullanırsın.
+- Öğrenciyle "sen" diye konuşursun, arkadaşça ama saygılı bir ton kullanırsın.
+
+UZMANLIK ALANLARIN (Sadece bu derslerle ilgili sorulara cevap ver):
+1. Matematik (8. sınıf): Çarpanlar-Katlar, Üslü İfadeler, Kareköklü İfadeler, Cebirsel İfadeler, Doğrusal Denklemler, Eşitsizlikler, Olasılık, Veri Analizi, Üçgenler, Eşlik-Benzerlik, Dönüşüm Geometrisi, Geometrik Cisimler
+2. Fen Bilimleri (8. sınıf): Mevsimler-İklim, DNA-Genetik Kod, Basınç, Madde ve Endüstri, Enerji Dönüşümleri, Elektrik Yükleri, Periyodik Sistem
+3. Türkçe (8. sınıf): Sözcükte Anlam, Cümlede Anlam, Paragraf, Fiilimsiler, Cümle Türleri, Yazım-Noktalama
+4. T.C. İnkılap Tarihi ve Atatürkçülük: Bir Kahraman Doğuyor, Milli Uyanış, Milli Mücadele, Türkiye Cumhuriyeti'nin Kuruluşu, Atatürk İlkeleri, Demokratikleşme
+5. Din Kültürü ve Ahlak Bilgisi (8. sınıf): Kader, Hz. Muhammed'in Hayatı, Din ve Hayat
+6. İngilizce (8. sınıf): Friendship, Teen Life, Cooking, Communication, The Internet, Adventures, Tourism, Chores
+
+YANITLAMA KURALLARI:
+- Sokratik yöntem kullan: Cevabı direkt verme, öğrenciyi adım adım düşündürerek doğru cevaba yönlendir.
+- Kısa ve öz cevaplar ver. Maksimum 3-4 paragraf. Gereksiz tekrar yapma.
+- Formül veya kural gerekiyorsa kısa, net ve doğru yaz.
+- Öğrenciyi motive et ama abartma. Doğal ol.
+- Emoji kullanabilirsin ama her cümlede değil, sadece vurgu için.
+- Sorunun cevabını verdikten sonra ilgili ipucu veya benzer soru önerisi ekleyebilirsin.
+
+YASAKLAR:
+- LGS müfredatı dışında konu anlatma (lise konuları, üniversite, programlama, oyun vs. YASAK).
+- Eğer öğrenci müfredat dışı soru sorarsa: "Bu konu LGS müfredatında yok, ama LGS'ye yönelik başka bir sorun varsa yardımcı olabilirim! 📚" de.
+- Uydurma bilgi verme. Emin olmadığın konularda bunu belirt.
+- Çok uzun cevaplar yazma.
+- Öğrenciye doğrudan tam cevap verme, önce düşünmesini sağla.`;
 
 /**
  * Send a chat message to Gemini and get AI response
@@ -28,26 +46,30 @@ export async function sendMessageToGemini(
   chatHistory: { role: 'user' | 'assistant'; content: string }[]
 ): Promise<string> {
   try {
-    // Convert chat history to Gemini format
-    const geminiHistory: GeminiMessage[] = chatHistory.map((msg) => ({
+    // Convert chat history to Gemini format and ensure alternating roles
+    const rawHistory: GeminiMessage[] = chatHistory.map((msg) => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }],
     }));
 
-    // Add system instruction as first user message if no history
+    // Fix consecutive same-role messages (Gemini requires alternating user/model)
     const contents: GeminiMessage[] = [];
-
-    if (geminiHistory.length === 0) {
-      contents.push({ role: 'user', parts: [{ text: SYSTEM_PROMPT + '\n\nÖğrenci sorusu: ' + userMessage }] });
-    } else {
-      // Prepend system prompt to first message context
-      contents.push({
-        role: 'user',
-        parts: [{ text: SYSTEM_PROMPT + '\n\nÖğrenci sorusu: ' + geminiHistory[0].parts[0].text }],
-      });
-      if (geminiHistory.length > 1) {
-        contents.push(...geminiHistory.slice(1));
+    for (const msg of rawHistory) {
+      const lastMsg = contents[contents.length - 1];
+      if (lastMsg && lastMsg.role === msg.role) {
+        // Merge consecutive same-role messages
+        lastMsg.parts[0].text += '\n' + msg.parts[0].text;
+      } else {
+        contents.push({ ...msg });
       }
+    }
+
+    // Add current user message
+    const lastMsg = contents[contents.length - 1];
+    if (lastMsg && lastMsg.role === 'user') {
+      // Merge with last user message to prevent consecutive user turns
+      lastMsg.parts[0].text += '\n' + userMessage;
+    } else {
       contents.push({ role: 'user', parts: [{ text: userMessage }] });
     }
 
@@ -55,10 +77,13 @@ export async function sendMessageToGemini(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: SYSTEM_INSTRUCTION }],
+        },
         contents,
         generationConfig: {
-          temperature: 0.8,
-          topP: 0.95,
+          temperature: 0.5,
+          topP: 0.9,
           maxOutputTokens: 1024,
         },
       }),
@@ -98,20 +123,22 @@ export async function generateWeeklyReportFromGemini(context: {
   weaknesses: string[];
   recommendations: string[];
 }> {
-  const prompt = `Sen LGS hazırlık koçusun. Aşağıdaki öğrenci verilerini analiz edip haftalık rapor oluştur.
+  const prompt = `Aşağıdaki 8. sınıf LGS öğrencisinin verilerini analiz et ve Türkçe haftalık rapor oluştur.
 
-VERİLER:
-- Çalışma logları: ${JSON.stringify(context.studyLogs.slice(-20))}
-- Deneme sınavları: ${JSON.stringify(context.exams.slice(-5))}
-- Çalışma serisi: ${context.streakDays} gün
+ÖĞRENCİ VERİLERİ:
+- Son çalışma logları: ${JSON.stringify(context.studyLogs.slice(-20))}
+- Son deneme sınavları: ${JSON.stringify(context.exams.slice(-5))}
+- Kesintisiz çalışma serisi: ${context.streakDays} gün
 
-CEVAP FORMATI (sadece JSON, başka bir şey yazma):
+GÖREV: Bu verilere dayanarak samimi, motive edici ve gerçekçi bir haftalık rapor üret.
+
+JSON CEVAP FORMATI (başka hiçbir şey yazma):
 {
-  "title": "Haftalık başlık",
-  "summary": "Kısa genel değerlendirme (2-3 cümle)",
-  "strengths": ["güçlü yön 1", "güçlü yön 2", "güçlü yön 3"],
-  "weaknesses": ["zayıf yön 1", "zayıf yön 2"],
-  "recommendations": ["öneri 1", "öneri 2", "öneri 3"]
+  "title": "Haftalık rapor başlığı (samimi ve motive edici)",
+  "summary": "2-3 cümlelik genel değerlendirme. Öğrencinin güçlü ve zayıf yönlerini özetle.",
+  "strengths": ["En az 2 güçlü yön - verilere dayalı somut gözlemler"],
+  "weaknesses": ["En az 2 zayıf yön - verilere dayalı somut gözlemler"],
+  "recommendations": ["En az 3 öneri - somut ve uygulanabilir tavsiyeler"]
 }`;
 
   try {
@@ -119,9 +146,12 @@ CEVAP FORMATI (sadece JSON, başka bir şey yazma):
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: 'Sen LGS eğitim analisti ve koçusun. Sadece istenilen JSON formatında cevap ver, ekstra yazı ekleme.' }],
+        },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.6,
+          temperature: 0.4,
           maxOutputTokens: 1024,
           responseMimeType: 'application/json',
         },
@@ -134,7 +164,12 @@ CEVAP FORMATI (sadece JSON, başka bir şey yazma):
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) throw new Error('No response');
 
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    // Validate required fields
+    if (!parsed.title || !parsed.summary || !Array.isArray(parsed.strengths) || !Array.isArray(parsed.weaknesses) || !Array.isArray(parsed.recommendations)) {
+      throw new Error('Invalid response structure');
+    }
+    return parsed;
   } catch (error) {
     console.error('Weekly report generation failed:', error);
     return {
@@ -147,6 +182,19 @@ CEVAP FORMATI (sadece JSON, başka bir şey yazma):
   }
 }
 
+// Valid LGS subjects for validation
+const VALID_SUBJECTS = ['Matematik', 'Fen Bilimleri', 'Türkçe', 'T.C. İnkılap Tarihi', 'Din Kültürü', 'İngilizce'];
+
+// Real LGS curriculum topic names for each subject
+const TOPIC_MAP: Record<string, string[]> = {
+  'Matematik': ['Çarpanlar ve Katlar', 'Üslü İfadeler', 'Kareköklü İfadeler', 'Cebirsel İfadeler ve Özdeşlikler', 'Doğrusal Denklemler', 'Eşitsizlikler', 'Üçgenler', 'Eşlik ve Benzerlik', 'Dönüşüm Geometrisi', 'Geometrik Cisimler', 'Veri Analizi', 'Olasılık'],
+  'Fen Bilimleri': ['Mevsimler ve İklim', 'DNA ve Genetik Kod', 'Basınç', 'Madde ve Endüstri', 'Enerji Dönüşümleri ve Çevre Bilimi', 'Elektrik Yükleri ve Elektrik Enerjisi', 'Periyodik Sistem'],
+  'Türkçe': ['Sözcükte Anlam', 'Cümlede Anlam', 'Paragrafta Anlam', 'Fiilimsiler', 'Cümle Türleri', 'Söz Sanatları', 'Yazım ve Noktalama Kuralları'],
+  'T.C. İnkılap Tarihi': ['Bir Kahraman Doğuyor', 'Milli Uyanış: Bağımsızlık Yolunda Atılan Adımlar', 'Milli Bir Destan: Ya İstiklal Ya Ölüm!', 'Atatürkçülük ve Çağdaşlaşan Türkiye', 'Demokratikleşme Çabaları', 'Atatürk Dönemi Türk Dış Politikası'],
+  'Din Kültürü': ['Kader İnancı', 'Zekât ve Sadaka', 'Din ve Hayat', 'Hz. Muhammed\'in Örnekliği'],
+  'İngilizce': ['Friendship', 'Teen Life', 'Cooking', 'Communication', 'The Internet', 'Adventures', 'Tourism', 'Chores'],
+};
+
 /**
  * Generate a weekly plan (draft tasks) using Gemini
  */
@@ -157,46 +205,51 @@ export async function generateWeeklyPlanFromGemini(context: {
 }): Promise<{ title: string; subject: string; topicName: string; targetCount: number }[]> {
   const customText = context.customInstruction?.trim() || '';
   const instructionPart = customText
-    ? `\nKULLANICI / MENTÖRÜN ÖZEL ROTA TALİMATI:
+    ? `\nMENTÖR / KULLANICI TALİMATI (EN YÜKSEK ÖNCELİK):
 "${customText}"
-ÖNEMLİ KURAL: Bu özel talebi MUTLAKA en yüksek öncelikle plana yansıt! 
-- Eğer talimatta Atatürk, inkılap, milli mücadele, tarih geçiyorsa subject "T.C. İnkılap Tarihi" olmalıdır.
-- Eğer matematik, üslü, kareköklü, çarpanlar geçiyorsa subject "Matematik" olmalıdır.
-- Eğer fen, basınç, dna, kalıtım, iklim geçiyorsa subject "Fen Bilimleri" olmalıdır.
-- Eğer paragraf, fiilimsi, dil bilgisi geçiyorsa subject "Türkçe" olmalıdır.
-- Görev başlığını profesyonel bir LGS çalışma başlığı olarak yaz (Örn: "Bir Kahraman Doğuyor 30 Soru", "Cebirsel İfadeler Soru Çözümü 25 Soru"). Talimat cümlesini aynen başlığa yapıştırma!\n`
+
+Bu talimatı mutlaka plana yansıt. Talimatta geçen derslere ve konulara özellikle odaklan.
+Ders eşleştirme kuralları:
+- Atatürk, inkılap, tarih, milli mücadele → subject: "T.C. İnkılap Tarihi"
+- matematik, üslü, kareköklü, çarpanlar, denklem → subject: "Matematik"
+- fen, basınç, dna, kalıtım, iklim, periyodik → subject: "Fen Bilimleri"
+- paragraf, fiilimsi, dil bilgisi, sözcük → subject: "Türkçe"
+- din, kader, zekat, hz. muhammed → subject: "Din Kültürü"
+- ingilizce, friendship, teen life → subject: "İngilizce"\n`
     : '';
 
-  const prompt = `Sen LGS hazırlık koçusun. 8. sınıf öğrencisi için haftalık çalışma planı (2-4 görev) öner.
+  const prompt = `8. sınıf LGS öğrencisi için haftalık çalışma planı oluştur. 2-4 arası görev üret.
 
-VERİLER:
+ÖĞRENCİ VERİLERİ:
 - Son çalışmalar: ${JSON.stringify(context.studyLogs.slice(-15))}
 - Mevcut görevler: ${JSON.stringify(context.currentTasks.slice(-5))}
 ${instructionPart}
-Zayıf konulara ve varsa yukarıdaki özel talimata öncelik ver. LGS müfredatından gerçek konular seç.
+KURALLAR:
+1. Zayıf konulara öncelik ver (yanlış oranı yüksek olanlar).
+2. Varsa mentör talimatını en yüksek öncelikle planla.
+3. Görev başlıklarını profesyonel yaz: "Konu Adı + Soru Çözümü + Soru Sayısı" formatı.
+   Örnek: "Çarpanlar ve Katlar Pekiştirme 30 Soru", "DNA ve Genetik Kod Yeni Nesil 25 Soru"
+4. targetCount: 20 ile 40 arası olsun.
+5. subject alanı SADECE şunlardan biri: Matematik, Fen Bilimleri, Türkçe, T.C. İnkılap Tarihi, Din Kültürü, İngilizce
+6. topicName alanı gerçek MEB 8. sınıf müfredat konu adı olmalı.
 
-CEVAP FORMATI (Sadece JSON array, kesinlikle başka hiçbir yazı veya markdown backtick ekleme):
+JSON ARRAY CEVAP VER (başka hiçbir şey yazma):
 [
-  { "title": "Ders ve Konu Başlığı 30 Soru", "subject": "Ders adı", "topicName": "Müfredat Konu Adı", "targetCount": 30 }
-]
-
-Ders adları sadece şunlardan biri olabilir:
-- Matematik
-- Fen Bilimleri
-- Türkçe
-- T.C. İnkılap Tarihi
-- Din Kültürü
-- İngilizce`;
+  { "title": "Görev Başlığı", "subject": "Ders Adı", "topicName": "Müfredat Konu Adı", "targetCount": 30 }
+]`;
 
   try {
     const response = await fetch(GEMINI_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: 'Sen LGS eğitim planlayıcısın. Sadece istenilen JSON array formatında cevap ver. Ekstra metin, markdown veya backtick EKLEME.' }],
+        },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 8192,
+          temperature: 0.4,
+          maxOutputTokens: 2048,
           responseMimeType: 'application/json',
         },
       }),
@@ -209,7 +262,37 @@ Ders adları sadece şunlardan biri olabilir:
     if (!text) throw new Error('No response');
 
     const parsed = JSON.parse(text);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty or non-array response');
+
+    // Validate and sanitize each task
+    return parsed
+      .filter((t: any) => t && t.title && t.subject && t.topicName && t.targetCount)
+      .map((t: any) => {
+        // Fix subject if invalid
+        let subject = t.subject;
+        if (!VALID_SUBJECTS.includes(subject)) {
+          // Try to match
+          const lower = subject.toLowerCase();
+          if (lower.includes('matematik')) subject = 'Matematik';
+          else if (lower.includes('fen')) subject = 'Fen Bilimleri';
+          else if (lower.includes('türkçe')) subject = 'Türkçe';
+          else if (lower.includes('tarih') || lower.includes('inkılap')) subject = 'T.C. İnkılap Tarihi';
+          else if (lower.includes('din')) subject = 'Din Kültürü';
+          else if (lower.includes('ingilizce')) subject = 'İngilizce';
+          else subject = 'Matematik'; // fallback
+        }
+
+        // Clamp targetCount
+        const targetCount = Math.min(50, Math.max(10, Number(t.targetCount) || 25));
+
+        return {
+          title: String(t.title).slice(0, 100),
+          subject,
+          topicName: String(t.topicName).slice(0, 80),
+          targetCount,
+        };
+      })
+      .slice(0, 5); // Max 5 tasks
   } catch (error) {
     console.error('Weekly plan generation failed:', error);
 

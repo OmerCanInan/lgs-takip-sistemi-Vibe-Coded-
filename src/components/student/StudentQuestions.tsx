@@ -74,7 +74,7 @@ export const StudentQuestions: React.FC = () => {
       {/* Header with "Yeni Soru Sor" button */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Soru Kutusu & Yanlış Defteri</h2>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Soru Kutusu & Arşiv</h2>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
             Anlamadığın soruları mentöre gönder, çözümleri adım adım öğren.
           </p>
@@ -173,7 +173,7 @@ export const StudentQuestions: React.FC = () => {
           }}
         >
           <Archive size={15} />
-          <span>Yanlış Defteri ({archiveQuestions.length})</span>
+          <span>Arşiv ({archiveQuestions.length})</span>
         </button>
       </div>
 
@@ -341,7 +341,7 @@ export const StudentQuestions: React.FC = () => {
         {activeTab === 'archive' &&
           (archiveQuestions.length === 0 ? (
             <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Yanlış defterinde henüz çözümlenmiş soru bulunmuyor. Soruların altına "Anladım" dediğinde burada arşivlenir.
+              Arşivde henüz çözümlenmiş soru bulunmuyor. Soruların altına "Anladım" dediğinde burada arşivlenir.
             </div>
           ) : (
             archiveQuestions.map((q) => (

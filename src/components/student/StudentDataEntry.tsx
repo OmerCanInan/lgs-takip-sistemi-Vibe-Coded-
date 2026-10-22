@@ -175,8 +175,29 @@ export const StudentDataEntry: React.FC = () => {
   ) => {
     setExamSubjects((prev) => {
       const next = [...prev];
-      const parsed = val === '' ? '' : Math.max(0, Number(val));
-      next[index] = { ...next[index], [field]: parsed };
+      const row = next[index];
+      const maxSubjectQuestions =
+        row.subject === 'Matematik' || row.subject === 'Fen Bilimleri' || row.subject === 'Türkçe'
+          ? 20
+          : 10;
+
+      if (val === '') {
+        next[index] = { ...row, [field]: '' };
+        return next;
+      }
+
+      const inputNum = Math.max(0, parseInt(val, 10) || 0);
+
+      // Current values of the other two fields
+      const currentC = field === 'correct' ? 0 : Number(row.correct) || 0;
+      const currentInc = field === 'incorrect' ? 0 : Number(row.incorrect) || 0;
+      const currentB = field === 'blank' ? 0 : Number(row.blank) || 0;
+      const otherSum = currentC + currentInc + currentB;
+
+      // Cap so that (field + otherSum) <= maxSubjectQuestions
+      const capped = Math.min(inputNum, Math.max(0, maxSubjectQuestions - otherSum));
+
+      next[index] = { ...row, [field]: capped };
       return next;
     });
   };
@@ -203,6 +224,20 @@ export const StudentDataEntry: React.FC = () => {
   const handleExamSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!examName.trim() || totalExamQuestions === 0) return;
+
+    for (const s of examSubjects) {
+      const maxQ =
+        s.subject === 'Matematik' || s.subject === 'Fen Bilimleri' || s.subject === 'Türkçe'
+          ? 20
+          : 10;
+      const c = Number(s.correct) || 0;
+      const inc = Number(s.incorrect) || 0;
+      const b = Number(s.blank) || 0;
+      if (c + inc + b > maxQ) {
+        alert(`${s.subject} dersi için toplam soru sayısı (Doğru + Yanlış + Boş) en fazla ${maxQ} olabilir!`);
+        return;
+      }
+    }
 
     addExamResult({
       examName,
@@ -620,9 +655,20 @@ export const StudentDataEntry: React.FC = () => {
           {/* Subject Rows */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
             {examSubjects.map((row, index) => {
+              const maxQ =
+                row.subject === 'Matematik' || row.subject === 'Fen Bilimleri' || row.subject === 'Türkçe'
+                  ? 20
+                  : 10;
               const numCorrect = Number(row.correct) || 0;
               const numIncorrect = Number(row.incorrect) || 0;
+              const numBlank = Number(row.blank) || 0;
+              const totalRowQuestions = numCorrect + numIncorrect + numBlank;
               const rowNet = Math.max(0, numCorrect - numIncorrect / 3).toFixed(2);
+
+              const maxAllowedCorrect = Math.max(0, maxQ - (numIncorrect + numBlank));
+              const maxAllowedIncorrect = Math.max(0, maxQ - (numCorrect + numBlank));
+              const maxAllowedBlank = Math.max(0, maxQ - (numCorrect + numIncorrect));
+
               return (
                 <div
                   key={row.subject}
@@ -637,13 +683,29 @@ export const StudentDataEntry: React.FC = () => {
                     border: '1px solid var(--border-subtle)',
                   }}
                 >
-                  <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>{row.subject}</div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>{row.subject}</div>
+                    <div
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        color:
+                          totalRowQuestions === maxQ
+                            ? '#6ee7b7'
+                            : totalRowQuestions > 0
+                            ? '#a5b4fc'
+                            : 'var(--text-muted)',
+                      }}
+                    >
+                      {totalRowQuestions}/{maxQ} Soru
+                    </div>
+                  </div>
 
                   <div>
                     <input
                       type="number"
                       min="0"
-                      max={row.subject === 'Matematik' || row.subject === 'Fen Bilimleri' || row.subject === 'Türkçe' ? 20 : 10}
+                      max={maxAllowedCorrect}
                       className="input-field"
                       style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center', borderColor: 'rgba(52, 211, 153, 0.4)', fontWeight: 700 }}
                       value={row.correct}
@@ -656,7 +718,7 @@ export const StudentDataEntry: React.FC = () => {
                     <input
                       type="number"
                       min="0"
-                      max={row.subject === 'Matematik' || row.subject === 'Fen Bilimleri' || row.subject === 'Türkçe' ? 20 : 10}
+                      max={maxAllowedIncorrect}
                       className="input-field"
                       style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center', borderColor: 'rgba(239, 68, 68, 0.4)', fontWeight: 700 }}
                       value={row.incorrect}
@@ -669,7 +731,7 @@ export const StudentDataEntry: React.FC = () => {
                     <input
                       type="number"
                       min="0"
-                      max={row.subject === 'Matematik' || row.subject === 'Fen Bilimleri' || row.subject === 'Türkçe' ? 20 : 10}
+                      max={maxAllowedBlank}
                       className="input-field"
                       style={{ padding: '6px 8px', fontSize: '0.85rem', textAlign: 'center', borderColor: 'rgba(148, 163, 184, 0.3)' }}
                       value={row.blank}

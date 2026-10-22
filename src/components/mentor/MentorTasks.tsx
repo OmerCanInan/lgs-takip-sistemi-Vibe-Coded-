@@ -448,6 +448,15 @@ export const MentorTasks: React.FC<MentorTasksProps> = ({
                     🎯 Öğrenci Çözümü: {task.quizResult.correct}D / {task.quizResult.incorrect}Y / {task.quizResult.blank}B (Başarı: %{task.quizResult.scorePercent})
                   </div>
                 )}
+                {task.completionResult && (
+                  <div style={{ fontSize: '0.78rem', color: '#34d399', fontWeight: 700, marginTop: '4px' }}>
+                    📊 Sonuç: {task.completionResult.correct}D / {task.completionResult.incorrect}Y / {task.completionResult.blank}B
+                    {' '}({Math.max(0, task.completionResult.correct - task.completionResult.incorrect / 3).toFixed(2)} Net)
+                    {task.completionImages && task.completionImages.length > 0 && (
+                      <span style={{ marginLeft: '8px', color: '#a5b4fc' }}>📷 {task.completionImages.length} Fotoğraf</span>
+                    )}
+                  </div>
+                )}
                 {task.mentorNote && (
                   <div style={{ fontSize: '0.75rem', color: '#fcd34d', marginTop: '4px' }}>
                     Notunuz: {task.mentorNote}

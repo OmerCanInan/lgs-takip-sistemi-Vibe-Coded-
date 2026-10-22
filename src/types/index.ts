@@ -75,6 +75,13 @@ export interface TaskItem {
     scorePercent: number;
     submittedAt: string;
   };
+  completionResult?: {
+    correct: number;
+    incorrect: number;
+    blank: number;
+    submittedAt: string;
+  };
+  completionImages?: string[];
 }
 
 export interface StudyLog {

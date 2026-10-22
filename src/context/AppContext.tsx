@@ -67,6 +67,7 @@ interface AppContextType {
   currentIntensity: IntensityLevel;
   tasks: TaskItem[];
   toggleTaskCompletion: (taskId: string) => void;
+  completeTaskWithResult: (taskId: string, result: { correct: number; incorrect: number; blank: number; images?: string[] }) => void;
   addMentorTask: (task: Omit<TaskItem, 'id' | 'createdAt' | 'isCompleted' | 'source' | 'status' | 'studentId'>) => void;
   approveDraftTask: (taskId: string) => void;
   deleteDraftTask: (taskId: string) => void;
@@ -515,6 +516,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return t;
       })
     );
+  };
+
+  // Complete task with detailed result (correct/incorrect/blank + images)
+  const completeTaskWithResult = (taskId: string, result: { correct: number; incorrect: number; blank: number; images?: string[] }) => {
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id === taskId) {
+          const updated: TaskItem = {
+            ...t,
+            isCompleted: true,
+            completedAt: new Date().toISOString(),
+            completionResult: {
+              correct: result.correct,
+              incorrect: result.incorrect,
+              blank: result.blank,
+              submittedAt: new Date().toISOString(),
+            },
+            completionImages: result.images && result.images.length > 0 ? result.images : undefined,
+          };
+          syncTaskToSupabase(updated);
+          return updated;
+        }
+        return t;
+      })
+    );
+
+    // Also add a study log for this task completion
+    const targetTask = tasks.find((t) => t.id === taskId);
+    if (targetTask && (result.correct + result.incorrect) > 0) {
+      const topicObj = CURRICULUM_TOPICS.find((top) => top.id === targetTask.topicId);
+      const newLogId = `log-task-${taskId}`;
+      const newLog: StudyLog = {
+        id: newLogId,
+        studentId: 'student-1',
+        subject: targetTask.subject,
+        topicId: targetTask.topicId,
+        topicName: topicObj ? topicObj.topicName : targetTask.topicName,
+        correct: result.correct,
+        incorrect: result.incorrect,
+        blank: result.blank,
+        durationMinutes: 0,
+        logDate: new Date().toISOString().split('T')[0],
+        createdAt: new Date().toISOString(),
+        images: result.images && result.images.length > 0 ? result.images : undefined,
+      };
+      setStudyLogs((sl) => [newLog, ...sl.filter((l) => l.id !== newLogId)]);
+      syncStudyLogToSupabase(newLog);
+    }
+
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ['#4f46e5', '#10b981', '#f59e0b', '#ec4899'],
+      });
+    } catch {}
   };
 
   // Add mentor task
@@ -1079,6 +1137,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentIntensity,
         tasks,
         toggleTaskCompletion,
+        completeTaskWithResult,
         addMentorTask,
         approveDraftTask,
         deleteDraftTask,
