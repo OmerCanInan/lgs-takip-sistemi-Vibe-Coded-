@@ -77,8 +77,12 @@ export const MentorTasks: React.FC<MentorTasksProps> = ({
     createEmptyQuestion(1),
   ]);
 
-  // Modal to inspect a quiz task
   const [viewingQuizTask, setViewingQuizTask] = useState<TaskItem | null>(null);
+  const [aiCustomInstruction, setAiCustomInstruction] = useState<string>('');
+
+  const handleGenerateAiPlan = () => {
+    generateAiWeeklyPlan(aiCustomInstruction);
+  };
 
   const draftTasks = tasks.filter((t) => t.status === 'draft');
   const activeTasks = tasks.filter((t) => t.status === 'active');
@@ -173,7 +177,7 @@ export const MentorTasks: React.FC<MentorTasksProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Header and Controls */}
       <div className="glass-panel" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '18px' }}>
           <div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Görev & Haftalık Rota Yönetimi</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
@@ -182,20 +186,71 @@ export const MentorTasks: React.FC<MentorTasksProps> = ({
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="btn btn-primary"
-              style={{ gap: '8px' }}
-            >
-              <PlusCircle size={18} />
-              <span>Görev Ekle</span>
-            </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn btn-primary"
+            style={{ gap: '8px' }}
+          >
+            <PlusCircle size={18} />
+            <span>Manuel Görev Ekle</span>
+          </button>
+        </div>
+
+        {/* AI Rota Prompt Giriş Kutusu */}
+        <div
+          style={{
+            background: 'rgba(15, 23, 42, 0.7)',
+            padding: '16px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+            <label style={{ fontSize: '0.84rem', fontWeight: 700, color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={16} />
+              <span>Yapay Zekaya Özel Rota Talimatı Ver (İsteğe Bağlı)</span>
+            </label>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              Boş bırakırsan zayıf konulara göre otomatik üretir
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              className="input-field"
+              value={aiCustomInstruction}
+              onChange={(e) => setAiCustomInstruction(e.target.value)}
+              placeholder="Örn: Bu hafta özellikle Matematik Üslü İfadeler ve Fen Kalıtım'a odaklansın, günde 30 soru olsun..."
+              style={{
+                flex: 1,
+                minWidth: '260px',
+                background: 'rgba(0, 0, 0, 0.3)',
+                borderColor: 'rgba(99, 102, 241, 0.35)',
+                fontSize: '0.88rem',
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isPlanLoading) {
+                  handleGenerateAiPlan();
+                }
+              }}
+            />
 
             <button
-              onClick={generateAiWeeklyPlan}
+              onClick={handleGenerateAiPlan}
               className="btn btn-secondary"
-              style={{ gap: '8px', color: '#a5b4fc', borderColor: 'rgba(99, 102, 241, 0.4)' }}
+              style={{
+                gap: '8px',
+                color: '#fff',
+                background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                border: 'none',
+                fontWeight: 700,
+                padding: '10px 20px',
+                whiteSpace: 'nowrap',
+              }}
               disabled={isPlanLoading}
             >
               <Sparkles size={18} />

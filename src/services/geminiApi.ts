@@ -153,14 +153,22 @@ CEVAP FORMATI (sadece JSON, başka bir şey yazma):
 export async function generateWeeklyPlanFromGemini(context: {
   studyLogs: { subject: string; correct: number; incorrect: number; blank: number; topicName: string }[];
   currentTasks: { title: string; subject: string; isCompleted: boolean }[];
+  customInstruction?: string;
 }): Promise<{ title: string; subject: string; topicName: string; targetCount: number }[]> {
-  const prompt = `Sen LGS hazırlık koçusun. Öğrencinin mevcut çalışma verilerine göre haftalık plan (2-3 görev) öner.
+  const customText = context.customInstruction?.trim();
+  const instructionPart = customText
+    ? `\nKULLANICI / MENTÖRÜN ÖZEL ROTA TALİMATI:
+"${customText}"
+Bu özel talebi MUTLAKA en yüksek öncelikle plana yansıt, talepte belirtilen ders/konu/hedeflere uygun görevler üret.\n`
+    : '';
+
+  const prompt = `Sen LGS hazırlık koçusun. Öğrencinin mevcut çalışma verilerine ve mentörün özel talimatlarına göre haftalık plan (2-4 görev) öner.
 
 VERİLER:
 - Son çalışmalar: ${JSON.stringify(context.studyLogs.slice(-15))}
 - Mevcut görevler: ${JSON.stringify(context.currentTasks.slice(-5))}
-
-Zayıf konulara öncelik ver. LGS müfredatından konular seç.
+${instructionPart}
+Zayıf konulara ve varsa yukarıdaki özel talimata öncelik ver. LGS müfredatından konular seç.
 
 CEVAP FORMATI (sadece JSON array, başka bir şey yazma):
 [
@@ -194,8 +202,18 @@ Ders adları sadece şunlardan biri olsun: Matematik, Fen Bilimleri, Türkçe, T
   } catch (error) {
     console.error('Weekly plan generation failed:', error);
     return [
-      { title: 'Matematik Kuvvetlendirme 25 Soru', subject: 'Matematik', topicName: 'Genel Tekrar', targetCount: 25 },
-      { title: 'Fen Bilimleri Deneme Çözümü 20 Soru', subject: 'Fen Bilimleri', topicName: 'Genel Tekrar', targetCount: 20 },
+      {
+        title: customText ? `${customText.slice(0, 30)} - Pekiştirme 25 Soru` : 'Matematik Kuvvetlendirme 25 Soru',
+        subject: 'Matematik',
+        topicName: 'Genel Tekrar',
+        targetCount: 25,
+      },
+      {
+        title: 'Fen Bilimleri Deneme Çözümü 20 Soru',
+        subject: 'Fen Bilimleri',
+        topicName: 'Genel Tekrar',
+        targetCount: 20,
+      },
     ];
   }
 }

@@ -87,7 +87,7 @@ interface AppContextType {
   aiReports: AiReport[];
   generateAiWeeklyReport: () => void;
   isReportLoading: boolean;
-  generateAiWeeklyPlan: () => void;
+  generateAiWeeklyPlan: (customInstruction?: string) => void;
   isPlanLoading: boolean;
   // Computed stats
   todaySolvedQuestions: number;
@@ -875,7 +875,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Generate AI Weekly Plan (Gemini-powered, adds draft tasks)
   const [isPlanLoading, setIsPlanLoading] = useState(false);
 
-  const generateAiWeeklyPlan = useCallback(async () => {
+  const generateAiWeeklyPlan = useCallback(async (customInstruction?: string) => {
     setIsPlanLoading(true);
     try {
       const logContext = studyLogs.map((l) => ({
@@ -895,6 +895,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const planItems = await generateWeeklyPlanFromGemini({
         studyLogs: logContext,
         currentTasks: taskContext,
+        customInstruction,
       });
 
       const generatedDrafts: TaskItem[] = planItems.map((item, idx) => ({
