@@ -11,9 +11,11 @@ import {
   X,
   ExternalLink,
   ZoomIn,
+  Loader2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { CURRICULUM_TOPICS } from '../../data/curriculum';
+import { compressImage } from '../../utils/imageCompressor';
 import type { QuestionItem, SubjectName } from '../../types';
 
 export const StudentQuestions: React.FC = () => {
@@ -29,23 +31,31 @@ export const StudentQuestions: React.FC = () => {
   const [newSubject, setNewSubject] = useState<SubjectName>('Matematik');
   const [newTopicId, setNewTopicId] = useState<string>('mat-3');
   const [newNote, setNewNote] = useState('');
-  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([
-    'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&q=80',
-  ]);
+  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
+  const [isCompressing, setIsCompressing] = useState(false);
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setSelectedPhotos((prev) => [...prev, reader.result as string]);
+    setIsCompressing(true);
+    try {
+      for (const file of Array.from(files)) {
+        const compressed = await compressImage(file, 1100, 0.72);
+        if (compressed) {
+          setSelectedPhotos((prev) => [...prev, compressed]);
         }
-      };
-      reader.readAsDataURL(file);
+      }
+    } catch (err) {
+      console.error('Image compression error:', err);
+    } finally {
+      setIsCompressing(false);
+      e.target.value = '';
     }
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    setSelectedPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleCreateQuestion = (e: React.FormEvent) => {
@@ -61,6 +71,7 @@ export const StudentQuestions: React.FC = () => {
 
     setShowNewModal(false);
     setNewNote('');
+    setSelectedPhotos([]);
     setActiveTab('pending');
   };
 
@@ -665,34 +676,86 @@ export const StudentQuestions: React.FC = () => {
                     id="camera-input"
                     style={{ display: 'none' }}
                     onChange={handleFileUpload}
+                    disabled={isCompressing}
                   />
 
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '8px' }}>
                     <label
                       htmlFor="camera-input"
                       className="btn btn-secondary btn-sm"
-                      style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      style={{
+                        cursor: isCompressing ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        opacity: isCompressing ? 0.7 : 1,
+                      }}
                     >
-                      <Camera size={16} /> Fotoğraf Çek / Dosya Seç
+                      {isCompressing ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" /> Fotoğraf Optimize Ediliyor...
+                        </>
+                      ) : (
+                        <>
+                          <Camera size={16} /> Fotoğraf Çek / Dosya Seç
+                        </>
+                      )}
                     </label>
                   </div>
 
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                    Fotoğraflar otomatik olarak optimize edilir, hızlı ve güvenle yüklenir.
+                  </p>
 
-
-                  {/* Image Preview */}
+                  {/* Images Preview Grid */}
                   {selectedPhotos.length > 0 && (
-                    <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center' }}>
-                      <img
-                        src={selectedPhotos[0]}
-                        alt="Seçilen Soru"
-                        style={{
-                          width: '100px',
-                          height: '100px',
-                          borderRadius: '8px',
-                          objectFit: 'cover',
-                          border: '1px solid #818cf8',
-                        }}
-                      />
+                    <div
+                      style={{
+                        marginTop: '14px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      {selectedPhotos.map((photo, idx) => (
+                        <div key={idx} style={{ position: 'relative' }}>
+                          <img
+                            src={photo}
+                            alt={`Seçilen Soru ${idx + 1}`}
+                            style={{
+                              width: '90px',
+                              height: '90px',
+                              borderRadius: '8px',
+                              objectFit: 'cover',
+                              border: '2px solid #818cf8',
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePhoto(idx)}
+                            style={{
+                              position: 'absolute',
+                              top: '-6px',
+                              right: '-6px',
+                              background: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: '20px',
+                              height: '20px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                            }}
+                            title="Fotoğrafı Kaldır"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

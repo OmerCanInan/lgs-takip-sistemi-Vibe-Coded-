@@ -23,6 +23,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { CURRICULUM_TOPICS } from '../../data/curriculum';
 import { MentorQuizViewModal } from '../quiz/MentorQuizViewModal';
+import { compressImage } from '../../utils/imageCompressor';
 import type { SubjectName, TaskItem, TaskQuestion } from '../../types';
 
 interface MentorTasksProps {
@@ -126,13 +127,18 @@ export const MentorTasks: React.FC<MentorTasksProps> = ({
     );
   };
 
-  const handleImageFileChange = (file: File, questionIndex: number) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      handleUpdateQuestion(questionIndex, 'imageUrl', base64);
-    };
-    reader.readAsDataURL(file);
+  const handleImageFileChange = async (file: File, questionIndex: number) => {
+    try {
+      const compressed = await compressImage(file, 1000, 0.72);
+      handleUpdateQuestion(questionIndex, 'imageUrl', compressed);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string;
+        handleUpdateQuestion(questionIndex, 'imageUrl', base64);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleCreateTask = (e: React.FormEvent) => {

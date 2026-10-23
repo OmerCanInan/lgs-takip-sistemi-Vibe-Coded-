@@ -42,6 +42,7 @@ import {
   syncChatMessageToSupabase,
   syncAiReportToSupabase,
 } from '../services/supabaseSync';
+import { compressImage } from '../utils/imageCompressor';
 
 interface TopicMastery {
   topic: CurriculumTopic;
@@ -115,8 +116,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (localStorage.getItem('lgs_store_version') !== STORE_VERSION) {
         localStorage.clear();
         localStorage.setItem('lgs_store_version', STORE_VERSION);
+      } else {
+        // Self-heal: inspect questions in localStorage to clear oversized raw base64 that caused QuotaExceededError
+        const rawQ = localStorage.getItem('lgs_questions');
+        if (rawQ) {
+          const parsed = JSON.parse(rawQ);
+          if (Array.isArray(parsed)) {
+            let hasHuge = false;
+            const cleaned = parsed.map((q: any) => {
+              const cleanImgs = Array.isArray(q.images)
+                ? q.images
+                    .map((img: string) => {
+                      if (typeof img === 'string' && img.length > 200000) {
+                        hasHuge = true;
+                        return '';
+                      }
+                      return img;
+                    })
+                    .filter(Boolean)
+                : [];
+              return { ...q, images: cleanImgs };
+            });
+            if (hasHuge) {
+              localStorage.setItem('lgs_questions', JSON.stringify(cleaned));
+            }
+          }
+        }
       }
-    } catch {}
+    } catch (e) {
+      console.warn('Storage self-healing exception handled:', e);
+      try {
+        localStorage.removeItem('lgs_questions');
+      } catch {}
+    }
   }
 
   // Persistence helpers
@@ -205,13 +237,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {}
   };
 
-  // Sync to local storage
+  // Safe localStorage setter that never throws QuotaExceededError and gracefully cleans fallback cache
+  const safeSetItem = (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (err: any) {
+      console.warn(`localStorage save error for ${key}:`, err);
+      if (
+        err?.name === 'QuotaExceededError' ||
+        err?.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+        err?.code === 22 ||
+        err?.code === 1014 ||
+        err?.message?.toLowerCase().includes('quota')
+      ) {
+        try {
+          if (key === 'lgs_questions') {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) {
+              // Strip massive base64 images from questions for localStorage fallback
+              const sanitized = parsed.map((q: any) => ({
+                ...q,
+                images: Array.isArray(q.images)
+                  ? q.images.map((img: string) => (img && img.length > 50000 ? '' : img)).filter(Boolean)
+                  : [],
+                messages: Array.isArray(q.messages)
+                  ? q.messages.map((m: any) => ({
+                      ...m,
+                      imagePaths: Array.isArray(m.imagePaths)
+                        ? m.imagePaths.map((img: string) => (img && img.length > 50000 ? '' : img)).filter(Boolean)
+                        : [],
+                    }))
+                  : [],
+              }));
+              localStorage.setItem(key, JSON.stringify(sanitized));
+            }
+          } else if (key === 'lgs_studyLogs') {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) {
+              const sanitized = parsed.map((l: any) => ({
+                ...l,
+                images: Array.isArray(l.images)
+                  ? l.images.map((img: string) => (img && img.length > 50000 ? '' : img)).filter(Boolean)
+                  : [],
+              }));
+              localStorage.setItem(key, JSON.stringify(sanitized));
+            }
+          }
+        } catch {
+          // If fallback write still fails, gracefully skip so React never crashes
+        }
+      }
+    }
+  };
+
+  // Sync to local storage safely
   useEffect(() => {
-    localStorage.setItem('lgs_role', JSON.stringify(role));
+    safeSetItem('lgs_role', JSON.stringify(role));
   }, [role]);
 
   useEffect(() => {
-    localStorage.setItem('lgs_intensity', JSON.stringify(intensityLevel));
+    safeSetItem('lgs_intensity', JSON.stringify(intensityLevel));
   }, [intensityLevel]);
 
   // Cross-tab synchronization within the same browser
@@ -231,27 +316,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('lgs_tasks', JSON.stringify(tasks));
+    safeSetItem('lgs_tasks', JSON.stringify(tasks));
   }, [tasks]);
 
   useEffect(() => {
-    localStorage.setItem('lgs_studyLogs', JSON.stringify(studyLogs));
+    safeSetItem('lgs_studyLogs', JSON.stringify(studyLogs));
   }, [studyLogs]);
 
   useEffect(() => {
-    localStorage.setItem('lgs_exams', JSON.stringify(exams));
+    safeSetItem('lgs_exams', JSON.stringify(exams));
   }, [exams]);
 
   useEffect(() => {
-    localStorage.setItem('lgs_questions', JSON.stringify(questions));
+    safeSetItem('lgs_questions', JSON.stringify(questions));
   }, [questions]);
 
   useEffect(() => {
-    localStorage.setItem('lgs_chat', JSON.stringify(chatMessages));
+    safeSetItem('lgs_chat', JSON.stringify(chatMessages));
   }, [chatMessages]);
 
   useEffect(() => {
-    localStorage.setItem('lgs_reports', JSON.stringify(aiReports));
+    safeSetItem('lgs_reports', JSON.stringify(aiReports));
   }, [aiReports]);
 
   // Supabase Realtime & Remote Database Synchronization

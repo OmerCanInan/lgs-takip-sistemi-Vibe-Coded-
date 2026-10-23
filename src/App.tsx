@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { StudentView } from './components/student/StudentView';
 import { MentorView } from './components/mentor/MentorView';
 import { LoginView } from './components/auth/LoginView';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { RotateCcw } from 'lucide-react';
 
 const MainApp: React.FC = () => {
@@ -73,10 +74,13 @@ const MainApp: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <AppProvider>
-      <MainApp />
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <MainApp />
+      </AppProvider>
+    </ErrorBoundary>
   );
 };
 
 export default App;
+
