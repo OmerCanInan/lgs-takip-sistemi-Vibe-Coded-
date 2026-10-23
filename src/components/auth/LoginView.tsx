@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, User, Lock, Eye, EyeOff, LogIn, ShieldAlert, GraduationCap, ShieldCheck } from 'lucide-react';
+import { Sparkles, User, Lock, Eye, EyeOff, LogIn, ShieldAlert } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 export const LoginView: React.FC = () => {
@@ -27,12 +27,6 @@ export const LoginView: React.FC = () => {
         setIsLoading(false);
       }
     }, 300);
-  };
-
-  const fillCredentials = (user: string, pass: string) => {
-    setUsername(user);
-    setPassword(pass);
-    setError(null);
   };
 
   return (
@@ -267,60 +261,6 @@ export const LoginView: React.FC = () => {
             <span>{isLoading ? 'Giriş Yapılıyor...' : 'Giriş Yap'}</span>
           </button>
         </form>
-
-        {/* Quick Fill Demo Helper Buttons */}
-        <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '10px' }}>
-            HIZLI DOLDUR (TEST HESAPLARI)
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={() => fillCredentials('öyküöykü', 'öykü1234')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '8px 10px',
-                borderRadius: '8px',
-                background: 'rgba(99, 102, 241, 0.1)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
-                color: '#a5b4fc',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              <GraduationCap size={14} />
-              <span>Öğrenci (Öykü)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => fillCredentials('admin', 'adminMf130805')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '8px 10px',
-                borderRadius: '8px',
-                background: 'rgba(245, 158, 11, 0.1)',
-                border: '1px solid rgba(245, 158, 11, 0.25)',
-                color: '#fcd34d',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              <ShieldCheck size={14} />
-              <span>Admin / Mentor</span>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
