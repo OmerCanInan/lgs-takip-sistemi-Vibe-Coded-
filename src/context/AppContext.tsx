@@ -242,7 +242,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       localStorage.setItem(key, value);
     } catch (err: any) {
-      console.warn(`localStorage save error for ${key}:`, err);
       if (
         err?.name === 'QuotaExceededError' ||
         err?.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
@@ -254,19 +253,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (key === 'lgs_questions') {
             const parsed = JSON.parse(value);
             if (Array.isArray(parsed)) {
-              // Strip massive base64 images from questions for localStorage fallback
               const sanitized = parsed.map((q: any) => ({
                 ...q,
-                images: Array.isArray(q.images)
-                  ? q.images.map((img: string) => (img && img.length > 50000 ? '' : img)).filter(Boolean)
-                  : [],
+                images: [],
                 messages: Array.isArray(q.messages)
-                  ? q.messages.map((m: any) => ({
-                      ...m,
-                      imagePaths: Array.isArray(m.imagePaths)
-                        ? m.imagePaths.map((img: string) => (img && img.length > 50000 ? '' : img)).filter(Boolean)
-                        : [],
-                    }))
+                  ? q.messages.map((m: any) => ({ ...m, imagePaths: [] }))
                   : [],
               }));
               localStorage.setItem(key, JSON.stringify(sanitized));
@@ -276,16 +267,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (Array.isArray(parsed)) {
               const sanitized = parsed.map((l: any) => ({
                 ...l,
-                images: Array.isArray(l.images)
-                  ? l.images.map((img: string) => (img && img.length > 50000 ? '' : img)).filter(Boolean)
-                  : [],
+                images: [],
               }));
               localStorage.setItem(key, JSON.stringify(sanitized));
             }
           }
         } catch {
-          // If fallback write still fails, gracefully skip so React never crashes
+          // Gracefully omit localStorage write if device storage is completely full
         }
+      } else {
+        console.warn(`localStorage save error for ${key}:`, err);
       }
     }
   };
@@ -320,7 +311,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [tasks]);
 
   useEffect(() => {
-    safeSetItem('lgs_studyLogs', JSON.stringify(studyLogs));
+    // Only store lightweight metadata in localStorage; Supabase holds full images
+    const lightweightLogs = studyLogs.map((l) => ({
+      ...l,
+      images: (l.images || []).map((img) => (typeof img === 'string' && img.startsWith('data:image/') ? '' : img)).filter(Boolean),
+    }));
+    safeSetItem('lgs_studyLogs', JSON.stringify(lightweightLogs));
   }, [studyLogs]);
 
   useEffect(() => {
@@ -328,7 +324,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [exams]);
 
   useEffect(() => {
-    safeSetItem('lgs_questions', JSON.stringify(questions));
+    // Stripping base64 images from localStorage cache ensures localStorage quota NEVER blows up.
+    // Supabase is the permanent source of truth for full questions and images.
+    const lightweightQuestions = questions.map((q) => ({
+      ...q,
+      images: (q.images || []).map((img) => (typeof img === 'string' && img.startsWith('data:image/') ? '' : img)).filter(Boolean),
+      messages: (q.messages || []).map((m) => ({
+        ...m,
+        imagePaths: (m.imagePaths || []).map((img) => (typeof img === 'string' && img.startsWith('data:image/') ? '' : img)).filter(Boolean),
+      })),
+    }));
+    safeSetItem('lgs_questions', JSON.stringify(lightweightQuestions));
   }, [questions]);
 
   useEffect(() => {
