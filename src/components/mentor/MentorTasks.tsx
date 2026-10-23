@@ -19,10 +19,12 @@ import {
   XCircle,
   Plus,
   X,
+  Code2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { CURRICULUM_TOPICS } from '../../data/curriculum';
 import { MentorQuizViewModal } from '../quiz/MentorQuizViewModal';
+import { MentorJsonTaskModal } from './MentorJsonTaskModal';
 import { compressImage } from '../../utils/imageCompressor';
 import type { SubjectName, TaskItem, TaskQuestion } from '../../types';
 
@@ -57,6 +59,7 @@ export const MentorTasks: React.FC<MentorTasksProps> = ({
   } = useApp();
 
   const [showAddModal, setShowAddModal] = useState(!!prefilledTopic);
+  const [showJsonModal, setShowJsonModal] = useState(false);
   const [createMode, setCreateMode] = useState<'target' | 'quiz'>('quiz'); // Default to quiz as user asked for it
   const [taskTitle, setTaskTitle] = useState(
     prefilledTopic ? `${prefilledTopic.topicName} Pekiştirme Testi` : 'LGS Yeni Nesil Soru Paketi'
@@ -192,14 +195,31 @@ export const MentorTasks: React.FC<MentorTasksProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn btn-primary"
-            style={{ gap: '8px' }}
-          >
-            <PlusCircle size={18} />
-            <span>Manuel Görev Ekle</span>
-          </button>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setShowJsonModal(true)}
+              className="btn btn-secondary"
+              style={{
+                gap: '8px',
+                borderColor: 'rgba(99, 102, 241, 0.45)',
+                background: 'rgba(99, 102, 241, 0.15)',
+                color: '#c7d2fe',
+                fontWeight: 700,
+              }}
+            >
+              <Code2 size={18} color="#818cf8" />
+              <span>JSON ile Sınav / Test Yükle</span>
+            </button>
+
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="btn btn-primary"
+              style={{ gap: '8px' }}
+            >
+              <PlusCircle size={18} />
+              <span>Manuel Görev Ekle</span>
+            </button>
+          </div>
         </div>
 
         {/* AI Rota Prompt Giriş Kutusu */}
@@ -608,6 +628,32 @@ export const MentorTasks: React.FC<MentorTasksProps> = ({
               >
                 <Calendar size={16} color={createMode === 'target' ? '#f59e0b' : 'currentColor'} />
                 <span>🎯 Klasik Soru Çözüm Hedefi</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddModal(false);
+                  setShowJsonModal(true);
+                }}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(99, 102, 241, 0.4)',
+                  background: 'rgba(99, 102, 241, 0.12)',
+                  color: '#c7d2fe',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <Code2 size={16} color="#818cf8" />
+                <span>📋 JSON ile Test Yükle</span>
               </button>
             </div>
 
@@ -1054,6 +1100,12 @@ export const MentorTasks: React.FC<MentorTasksProps> = ({
           onClose={() => setViewingQuizTask(null)}
         />
       )}
+
+      {/* JSON QUIZ IMPORT MODAL */}
+      <MentorJsonTaskModal
+        isOpen={showJsonModal}
+        onClose={() => setShowJsonModal(false)}
+      />
     </div>
   );
 };
