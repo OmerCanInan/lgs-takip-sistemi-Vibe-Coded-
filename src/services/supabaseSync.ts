@@ -254,9 +254,40 @@ export async function deleteExamFromSupabase(examId: string) {
 export async function syncQuestionToSupabase(question: QuestionItem) {
   if (!isSupabaseConfigured || !supabase) return;
   try {
-    await supabase.from('questions').upsert(mapQuestionToDb(question));
+    const { error } = await supabase.from('questions').upsert(mapQuestionToDb(question));
+    if (error) {
+      console.warn('Supabase question sync failed:', error);
+    }
   } catch (err) {
     console.warn('Supabase question sync failed:', err);
+  }
+}
+
+export async function updateQuestionStatusInSupabase(questionId: string, status: 'resolved' | 'reopened' | 'answered') {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    const payload: any = { status };
+    if (status === 'resolved') {
+      payload.resolved_at = new Date().toISOString();
+    }
+    const { error } = await supabase.from('questions').update(payload).eq('id', questionId);
+    if (error) {
+      console.warn('Supabase question status update failed:', error);
+    }
+  } catch (err) {
+    console.warn('Supabase question status update error:', err);
+  }
+}
+
+export async function deleteQuestionFromSupabase(questionId: string) {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    const { error } = await supabase.from('questions').delete().eq('id', questionId);
+    if (error) {
+      console.warn('Supabase question delete failed:', error);
+    }
+  } catch (err) {
+    console.warn('Supabase question delete failed:', err);
   }
 }
 

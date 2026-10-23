@@ -511,6 +511,7 @@ export const StudentQuestions: React.FC = () => {
                       onClick={() => {
                         resolveQuestion(selectedQuestion.id);
                         setSelectedQuestion(null);
+                        setActiveTab('archive');
                       }}
                       className="btn btn-success"
                       style={{ padding: '14px', fontWeight: 800 }}

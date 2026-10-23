@@ -39,6 +39,8 @@ import {
   syncExamToSupabase,
   deleteExamFromSupabase,
   syncQuestionToSupabase,
+  updateQuestionStatusInSupabase,
+  deleteQuestionFromSupabase,
   syncChatMessageToSupabase,
   syncAiReportToSupabase,
 } from '../services/supabaseSync';
@@ -86,6 +88,7 @@ interface AppContextType {
   answerQuestionByMentor: (questionId: string, text: string, images?: string[]) => void;
   resolveQuestion: (questionId: string) => void;
   reopenQuestion: (questionId: string, followUpNote: string) => void;
+  deleteQuestion: (questionId: string) => void;
   chatMessages: ChatMessage[];
   sendChatMessage: (content: string) => void;
   isAiLoading: boolean;
@@ -520,6 +523,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const idx = prev.findIndex((q) => q.id === item.id);
             return idx >= 0 ? prev.map((q) => (q.id === item.id ? item : q)) : [item, ...prev];
           });
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = (payload.old as any)?.id;
+          if (deletedId) {
+            setQuestions((prev) => prev.filter((q) => q.id !== deletedId));
+          }
+        }
+      })
+      .on('broadcast', { event: 'question_deleted' }, (payload) => {
+        if (payload.payload?.questionId) {
+          setQuestions((prev) => prev.filter((q) => q.id !== payload.payload.questionId));
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, (payload) => {
@@ -929,7 +942,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  // Student marks question as resolved ("Anladım") -> moves to Yanlış Defteri
+  // Student marks question as resolved ("Anladım") -> moves to Yanlış Defteri / Arşiv
   const resolveQuestion = (questionId: string) => {
     setQuestions((prev) =>
       prev.map((q) => {
@@ -939,7 +952,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             status: 'resolved',
             resolvedAt: new Date().toISOString(),
           };
-          syncQuestionToSupabase(updated);
+          updateQuestionStatusInSupabase(questionId, 'resolved');
           return updated;
         }
         return q;
@@ -973,12 +986,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             status: 'reopened',
             messages: [...q.messages, followUpMsg],
           };
+          updateQuestionStatusInSupabase(questionId, 'reopened');
           syncQuestionToSupabase(updated);
           return updated;
         }
         return q;
       })
     );
+  };
+
+  // Delete question permanently (by mentor or student)
+  const deleteQuestion = (questionId: string) => {
+    setQuestions((prev) => prev.filter((q) => q.id !== questionId));
+    deleteQuestionFromSupabase(questionId);
+    if (supabase) {
+      supabase.channel('public:lgs-takip-sync').send({
+        type: 'broadcast',
+        event: 'question_deleted',
+        payload: { questionId },
+      }).catch(() => {});
+    }
   };
 
   // AI Chat messaging (Gemini-powered Socratic coach)
@@ -1246,6 +1273,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         answerQuestionByMentor,
         resolveQuestion,
         reopenQuestion,
+        deleteQuestion,
         chatMessages,
         sendChatMessage,
         isAiLoading,

@@ -10,14 +10,16 @@ import {
   Flame,
   X,
   Filter,
+  Trash2,
+  Archive,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { QuestionItem, SubjectName } from '../../types';
 
 export const MentorQuestionDesk: React.FC = () => {
-  const { questions, answerQuestionByMentor, pendingQuestionsCount } = useApp();
+  const { questions, answerQuestionByMentor, deleteQuestion, pendingQuestionsCount } = useApp();
 
-  const [filterMode, setFilterMode] = useState<'pending' | 'all'>('pending');
+  const [filterMode, setFilterMode] = useState<'pending' | 'resolved' | 'all'>('pending');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
   const [activeQuestion, setActiveQuestion] = useState<QuestionItem | null>(null);
   const [mentorAnswerText, setMentorAnswerText] = useState('');
@@ -28,11 +30,16 @@ export const MentorQuestionDesk: React.FC = () => {
     if (filterMode === 'pending' && q.status !== 'pending' && q.status !== 'reopened') {
       return false;
     }
+    if (filterMode === 'resolved' && q.status !== 'resolved') {
+      return false;
+    }
     if (subjectFilter !== 'all' && q.subject !== subjectFilter) {
       return false;
     }
     return true;
   });
+
+  const resolvedCount = questions.filter((q) => q.status === 'resolved').length;
 
   // Analytics: Most queried subjects/topics
   const topicFrequency: Record<string, number> = {};
@@ -131,7 +138,26 @@ export const MentorQuestionDesk: React.FC = () => {
               cursor: 'pointer',
             }}
           >
-            Bekleyenler & Tekrar Sorulanlar
+            Bekleyenler ({pendingQuestionsCount})
+          </button>
+          <button
+            onClick={() => setFilterMode('resolved')}
+            style={{
+              padding: '8px 14px',
+              borderRadius: 'var(--radius-md)',
+              border: 'none',
+              background: filterMode === 'resolved' ? '#10b981' : 'rgba(255, 255, 255, 0.08)',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <Archive size={14} />
+            <span>Arşiv / Çözülenler ({resolvedCount})</span>
           </button>
           <button
             onClick={() => setFilterMode('all')}
@@ -233,16 +259,42 @@ export const MentorQuestionDesk: React.FC = () => {
                     </div>
                   </div>
 
-                  {isPending && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {isPending && (
+                      <button
+                        onClick={() => setActiveQuestion(q)}
+                        className="btn btn-primary btn-sm"
+                        style={{ gap: '6px' }}
+                      >
+                        <MessageSquare size={16} />
+                        <span>Çözümü Yaz & Gönder</span>
+                      </button>
+                    )}
+
                     <button
-                      onClick={() => setActiveQuestion(q)}
-                      className="btn btn-primary btn-sm"
-                      style={{ gap: '6px' }}
+                      onClick={() => {
+                        if (window.confirm('Bu soruyu kalıcı olarak silmek istediğinizden emin misiniz?')) {
+                          deleteQuestion(q.id);
+                        }
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{
+                        padding: '6px 12px',
+                        color: '#fca5a5',
+                        borderColor: 'rgba(239, 68, 68, 0.35)',
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.78rem',
+                      }}
+                      title="Soruyu Sil"
                     >
-                      <MessageSquare size={16} />
-                      <span>Çözümü Yaz & Gönder</span>
+                      <Trash2 size={14} />
+                      <span>Sil</span>
                     </button>
-                  )}
+                  </div>
                 </div>
 
                 {/* Question Note & Attached Photos */}
